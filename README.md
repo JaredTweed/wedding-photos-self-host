@@ -1,34 +1,17 @@
-# Shared Lens
+Site: https://sharedlens.ca
 
-This version is fully self-hosted. It does not use Firebase, Google login, Stripe, S3, or any other third-party runtime service.
+To Deploy: `firebase deploy --only hosting` or `firebase deploy --only firestore:rules,hosting`
 
-## What It Does
+Use the `Download Photos` button on the form page to download everything at full resolution, or press `Ctrl+Shift+D` from the gallery page.
 
-- Protects the admin area with a local password
-- Stores gallery metadata in a local JSON database
-- Stores uploaded photos and videos on disk
-- Serves the public gallery directly from the same container
-- Lets guests upload anonymously, with optional credit names
-- Lets visitors download the full gallery archive
+Use coupon code `FREEWEDDING` on the form page to skip payment and unlock publishing.
 
-## Run Locally
+To run: `npx http-server .`
+<!-- 
+To download: `aws s3 sync s3://the-wedding-share .`
 
-1. Set `ADMIN_PASSWORD` and `COOKIE_SECRET` in `docker-compose.yml` or pass them as environment variables.
-2. Start the app:
+To delete all the items on the server: `aws s3 rm s3://the-wedding-share --recursive`
 
-```bash
-docker compose up --build
-```
-
-3. Open `http://localhost:3000`
-
-## Data Storage
-
-- Gallery metadata is stored in `db.json` inside the mounted data volume.
-- Uploads are stored in the same volume under `uploads/`.
-
-## Useful Notes
-
-- The public gallery URL format is `http://your-host/<gallery-slug>`.
-- The admin page is at `/form`.
-- The gallery page still supports `Ctrl+Shift+D` / `Cmd+Shift+D` to download the full archive.
+TODO:
+- Make the managed S3 buckets purchasable.
+-->

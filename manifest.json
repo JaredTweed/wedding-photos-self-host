@@ -1,9 +1,9 @@
 {
-  "name": "Shared Lens",
-  "short_name": "Shared Lens",
-  "description": "Self-hosted wedding photo galleries",
-  "start_url": "/",
-  "scope": "/",
+  "name": "Maiya & Jared 2025",
+  "short_name": "Maiya&Jared",
+  "description": "Browse and upload our wedding photos & videos",
+  "start_url": "/wedding-photos/?utm_source=homescreen",
+  "scope": "/wedding-photos/",
   "display": "standalone",
   "background_color": "#ffffff",
   "icons": [

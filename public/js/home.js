@@ -293,6 +293,11 @@ function makeProgressRow(name) {
   row.querySelector('.label').textContent = name;
   overlayContent.appendChild(row);
   return {
+    reset(nextName) {
+      row.classList.remove('finish');
+      row.querySelector('.label').textContent = nextName || '';
+      row.querySelector('progress').value = 0;
+    },
     setPercent(value) {
       row.querySelector('progress').value = value;
     },
@@ -421,25 +426,31 @@ async function processSelectedFiles(fileList) {
   addBtn.textContent = 'Uploading...';
   overlay.classList.add('visible');
   overlayBottom.style.display = 'none';
-  overlayContent.innerHTML = `
-    <div style="color:#fff;font-size:1.2rem;text-align:center;padding:1rem;">
-      Uploading 1 / ${files.length}…
-    </div>
-  `;
+  overlayContent.innerHTML = '';
+
+  const statusEl = document.createElement('div');
+  statusEl.style.color = '#fff';
+  statusEl.style.fontSize = '1.2rem';
+  statusEl.style.textAlign = 'center';
+  statusEl.style.padding = '1rem';
+  statusEl.textContent = `Uploading 1 / ${files.length}…`;
+  overlayContent.appendChild(statusEl);
+
+  const row = makeProgressRow(files[0]?.name || '');
 
   try {
     for (const [index, file] of files.entries()) {
+      row.reset(file.name);
       const thumbBlob = isVideoFile(file)
         ? await makeVideoThumb(file)
         : await makeImageThumb(file);
 
-      const row = makeProgressRow(file.name);
       const upload = await uploadSingleFile(file, thumbBlob, (percent) => {
         row.setPercent(percent);
       });
       row.finish();
 
-      overlayContent.firstElementChild.textContent = `Uploading ${Math.min(index + 2, files.length)} / ${files.length}…`;
+      statusEl.textContent = `Uploading ${Math.min(index + 2, files.length)} / ${files.length}…`;
       uploads.unshift(upload);
     }
 

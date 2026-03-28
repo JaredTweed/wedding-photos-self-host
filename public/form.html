@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wedding Photos Config — Shared Lens</title>
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+  <style>
+    :root {
+      --ink: #111;
+      --paper: #f6f6f6;
+      --primary: hsl(96 23.7% 54%);
+      --current-hue: 96;
+      --current-sat: 23.7;
+      --current-light: 54;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100svh - 32px);
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 720px;
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 18px;
+      box-shadow: 0 10px 0 #000;
+      padding: 2rem clamp(1.25rem, 3vw, 2.5rem);
+      text-align: center;
+      margin: 8px 8px 16px;
+    }
+
+    .brand {
+      display: grid;
+      grid-template-columns: 100%;
+      justify-items: center;
+      gap: .75rem;
+      margin-bottom: .5rem;
+    }
+
+    .logo-mark {
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+    }
+
+    .wordmark {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      font-size: clamp(1.4rem, 4.8vw, 2rem);
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      margin: .25rem 0 0 0;
+      font-size: .95rem;
+      color: #444;
+      font-style: italic;
+    }
+
+    .rule {
+      border: none;
+      height: 1px;
+      background: #000;
+      margin: 1rem auto 1.25rem;
+      width: min(620px, 90%);
+      opacity: 0.15;
+    }
+
+    p {
+      margin: auto;
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+      text-underline-offset: 3px;
+    }
+
+    form {
+      text-align: left;
+      margin: 0 auto;
+      width: min(640px, 100%);
+    }
+
+    .field {
+      margin: 1rem 0;
+    }
+
+    label {
+      display: inline-block;
+      font-weight: 600;
+      margin-bottom: .35rem;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: .85rem 1rem;
+      border-radius: 12px;
+      border: 2px solid #000;
+      background: #fff;
+      font-size: 1rem;
+      box-shadow: 0 4px 0 #000;
+      outline: none;
+      transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease;
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      transform: translateY(-1px);
+    }
+
+    input::placeholder {
+      color: #6b7280;
+    }
+
+    .button-row {
+      display: grid;
+      gap: .75rem;
+      justify-items: center;
+      margin-top: 1.25rem;
+      width: 100%;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      padding: .85rem 1.4rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 999px;
+      border: 2px solid #000;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease, color .12s ease;
+      will-change: transform;
+    }
+
+    .btn-fill {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 6px 0 #000;
+    }
+
+    .btn-fill:hover {
+      transform: translateY(-2px);
+      filter: brightness(0.96);
+    }
+
+    .btn-fill:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 0 #000;
+      filter: brightness(0.9);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      box-shadow: 0 2px 0 #000;
+      filter: grayscale(0.2);
+    }
+
+    .btn-fill:disabled {
+      background: #d1d5db;
+      color: #6b7280;
+      border-color: #9ca3af;
+      box-shadow: 0 2px 0 #9ca3af;
+    }
+
+    .btn-outline {
+      background: #fff;
+      color: #111;
+      box-shadow: 0 6px 0 #000;
+    }
+
+    .btn-outline:hover {
+      transform: translateY(-2px);
+      background: #f4f4f4;
+    }
+
+    .btn-danger {
+      background: #fff5f5;
+      color: #991b1b;
+      border-color: #991b1b;
+      box-shadow: 0 6px 0 #991b1b;
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      background: #fee2e2;
+    }
+
+    .color-card {
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 16px;
+      box-shadow: 0 6px 0 #000;
+      padding: 1.25rem;
+      margin: 1rem 0 0.25rem;
+    }
+
+    .color-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: .75rem;
+    }
+
+    .color-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    #colorPreviewLarge {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 2px solid #000;
+      box-shadow: 0 4px 0 #000;
+      background: hsl(var(--current-hue), var(--current-sat), var(--current-light));
+    }
+
+    .hsl-readout {
+      margin: .5rem 0 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: .9rem;
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 10px;
+      box-shadow: 0 4px 0 #000;
+      padding: .5rem .75rem;
+      text-align: center;
+    }
+
+    .slider-block {
+      margin: .8rem 0 1rem;
+    }
+
+    .slider-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: .9rem;
+    }
+
+    .slider-value {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      border: 1.5px solid #000;
+      border-radius: 8px;
+      padding: .2rem .5rem;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 28px;
+      border-radius: 8px;
+      margin-top: .45rem;
+      border: 1.5px solid #000;
+      background: #eee;
+      box-shadow: 0 3px 0 #000;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #000;
+      box-shadow: 0 2px 0 #000;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #000;
+      box-shadow: 0 2px 0 #000;
+    }
+
+    .hue-track {
+      background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
+    }
+
+    .sat-track {
+      background: linear-gradient(to right, hsl(var(--current-hue) 0% 50%) 0%, hsl(var(--current-hue) 100% 50%) 100%);
+    }
+
+    .light-track {
+      background: linear-gradient(to right, hsl(var(--current-hue) var(--current-sat) 0%) 0%, hsl(var(--current-hue) var(--current-sat) 50%) 50%, hsl(var(--current-hue) var(--current-sat) 100%) 100%);
+    }
+
+    .notice {
+      font-size: .85rem;
+      color: #555;
+      opacity: .9;
+      text-align: center;
+    }
+
+    .notice-text {
+      margin-bottom: .75rem;
+    }
+
+    .notice-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .6rem;
+      justify-content: center;
+    }
+
+    .notice-actions .btn {
+      width: 100%;
+    }
+
+    @media (min-width: 560px) {
+      .notice-actions .btn {
+        width: auto;
+        min-width: 160px;
+      }
+    }
+
+    #donationGate {
+      border: 1.5px solid #000;
+      border-radius: 12px;
+      padding: .75rem;
+      margin: 1rem 0 0;
+      background: #fff;
+      box-shadow: 0 4px 0 #000;
+      display: none;
+      width: 100%;
+    }
+
+    #donationGate[data-state="locked"] {
+      display: block;
+    }
+
+    .danger-zone {
+      display: none;
+      margin-top: 2rem;
+      padding: 1.25rem;
+      border: 2px solid #991b1b;
+      border-radius: 16px;
+      background: #fff8f8;
+      text-align: left;
+      box-shadow: 0 6px 0 #991b1b22;
+    }
+
+    .danger-zone h3 {
+      margin: 0 0 .45rem;
+      font-size: 1.05rem;
+      letter-spacing: .01em;
+      color: #7f1d1d;
+    }
+
+    .danger-zone p {
+      margin: 0 0 .75rem;
+      color: #7f1d1d;
+      font-size: .9rem;
+    }
+
+    .danger-zone .danger-actions {
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    @media (min-width: 560px) {
+      .danger-zone .danger-actions {
+        flex-direction: row;
+        align-items: center;
+      }
+
+      .danger-zone input[type="text"] {
+        flex: 1;
+      }
+    }
+
+    #sl-userbar {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 10000;
+    }
+
+    #sl-user-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 2px solid #000;
+      box-shadow: 0 4px 0 #000;
+      cursor: pointer;
+      background: #eee;
+      object-fit: cover;
+    }
+
+    #sl-user-menu {
+      position: absolute;
+      top: 56px;
+      right: 0;
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 12px;
+      box-shadow: 0 8px 0 #000;
+      padding: 6px;
+      min-width: 180px;
+      display: none;
+    }
+
+    #sl-user-menu.show {
+      display: block;
+    }
+
+    #sl-user-menu button {
+      width: 100%;
+      background: none;
+      border: 0;
+      text-align: left;
+      padding: .6rem .8rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #sl-user-menu button:hover {
+      background: #111;
+      color: #fff;
+    }
+
+    @media (max-width: 640px) {
+      .card {
+        padding: 1.5rem;
+      }
+
+      form {
+        width: 100%;
+      }
+    }
+  </style>
+  <script>
+    (function enforceCanonicalFormPath() {
+      if (!/^https?:$/i.test(window.location.protocol)) return;
+      if (/\/form\.html$/i.test(window.location.pathname)) {
+        const query = window.location.search || '';
+        const hash = window.location.hash || '';
+        window.location.replace('/form' + query + hash);
+      }
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="sl-userbar">
+    <img id="sl-user-avatar" alt="User" />
+    <div id="sl-user-menu">
+      <button id="sl-main">Go to main page</button>
+      <button id="sl-auth">Sign in</button>
+    </div>
+  </div>
+
+  <main class="card">
+    <div class="brand">
+      <img class="logo-mark" src="/assets/shared-lens-logo.png" alt="Shared Lens logo" />
+      <h1 class="wordmark">Shared Lens</h1>
+      <p class="subtitle">Different perspectives, one story.</p>
+    </div>
+
+    <hr class="rule" />
+
+    <form id="siteForm">
+      <p style="text-align:center; margin-top:.25rem">
+        Configure your wedding photos site. Your settings can be changed later.
+      </p>
+
+      <div class="field">
+        <label for="siteTitle">Site Title</label>
+        <input id="siteTitle" type="text" placeholder="Wedding Photos" />
+      </div>
+
+      <div class="color-card" aria-label="Primary color selector">
+        <canvas id="hueGradientCanvas" width="360" height="1" style="display:none;"></canvas>
+
+        <div class="color-head">
+          <h3 class="color-title">Primary Color</h3>
+          <div id="colorPreviewLarge" title="Preview"></div>
+        </div>
+
+        <div id="hslValue" class="hsl-readout">hsl(96 23.7% 54%)</div>
+
+        <div class="slider-block">
+          <div class="slider-label">
+            <span>Hue</span><span class="slider-value" id="hueValue">96°</span>
+          </div>
+          <input id="hue" class="hue-track hue" type="range" min="0" max="360" step="1" value="96" />
+        </div>
+
+        <div class="slider-block">
+          <div class="slider-label">
+            <span>Saturation</span><span class="slider-value" id="satValue">23.7%</span>
+          </div>
+          <input id="sat" class="sat-track" type="range" min="0" max="100" step="0.1" value="23.7" />
+        </div>
+
+        <div class="slider-block">
+          <div class="slider-label">
+            <span>Lightness</span><span class="slider-value" id="lightValue">54%</span>
+          </div>
+          <input id="light" class="light-track" type="range" min="0" max="100" step="0.1" value="54" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="siteFont">Site Font</label>
+        <select id="siteFont">
+          <option value="serif">Elegant Serif</option>
+          <option value="sans">Modern Sans</option>
+        </select>
+      </div>
+
+      <div id="donationGate" class="notice" aria-live="polite">
+        <p class="notice-text" id="donationGateText">
+          Sign in with the admin password to publish or edit a site.
+        </p>
+      </div>
+
+      <div class="button-row">
+        <button type="submit" class="btn btn-fill" id="publishButton">Publish</button>
+      </div>
+
+      <div id="siteResult" class="notice" style="display:none; margin-top:1rem;"></div>
+
+      <div id="deleteSiteSection" class="danger-zone" aria-live="polite">
+        <h3>Delete this site</h3>
+        <p id="deleteSiteHelp">This will permanently remove the site and its files. Type "<span id="deleteSitePhrase"></span>" (the saved site title) to confirm.</p>
+        <div class="danger-actions">
+          <input id="deleteSiteConfirm" type="text" inputmode="text" autocomplete="off" aria-describedby="deleteSiteHelp" placeholder="delete Site Title" />
+          <button type="button" class="btn btn-danger" id="deleteSiteButton">Delete site permanently</button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <script type="module" src="/js/form.js"></script>
+</body>
+
+</html>

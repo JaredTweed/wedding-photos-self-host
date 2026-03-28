@@ -1,17 +1,30 @@
-Site: https://sharedlens.ca
+# Shared Lens
 
-To Deploy: `firebase deploy --only hosting` or `firebase deploy --only firestore:rules,hosting`
+This repo now runs as a fully self-hosted app.
 
-Use the `Download Photos` button on the form page to download everything at full resolution, or press `Ctrl+Shift+D` from the gallery page.
+- `index.html`, `form.html`, and `home.html` are served locally by `server.js`
+- Site metadata is stored in `data/db.json`
+- Uploaded originals and thumbnails are stored under `data/media/`
+- Admin access uses a password-backed session cookie
+- Guest uploads use a signed uploader cookie so each browser can only delete its own files
+- Stripe, Firebase, Firestore, Google login, S3, Cognito, and external QR generation have been removed
 
-Use coupon code `FREEWEDDING` on the form page to skip payment and unlock publishing.
+## Run Locally
 
-To run: `npx http-server .`
-<!-- 
-To download: `aws s3 sync s3://the-wedding-share .`
+1. Copy `.env.example` to `.env` and set `ADMIN_PASSWORD` and `SESSION_SECRET`
+2. Install dependencies with `npm install`
+3. Start the app with `npm start`
+4. Open `http://localhost:3000`
 
-To delete all the items on the server: `aws s3 rm s3://the-wedding-share --recursive`
+## Run With Docker
 
-TODO:
-- Make the managed S3 buckets purchasable.
--->
+1. Copy `.env.example` to `.env` and set `ADMIN_PASSWORD` and `SESSION_SECRET`
+2. Start the container with `docker compose up --build`
+3. Open `http://localhost:3000`
+
+Uploaded data is persisted in the local `./data` directory through the compose volume.
+
+## Notes
+
+- The landing page uses `/demo` as the built-in empty demo gallery.
+- If a browser clears its cookies, that browser loses delete access to uploads it previously made. This matches the anonymous-upload model, but the restriction is now enforced server-side instead of by localStorage alone.

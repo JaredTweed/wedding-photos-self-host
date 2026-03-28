@@ -1,0 +1,14 @@
+services:
+  shared-lens:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATA_DIR: /data
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-this-password}
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

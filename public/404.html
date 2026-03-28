@@ -1,17 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Page Not Found · Shared Lens</title>
-  <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family:Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <style>
     :root {
       --ink: #111;
       --paper: #f8f8f8;
-      --accent: #111;
-      font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--ink);
       background: var(--paper);
     }
@@ -27,7 +26,7 @@
       justify-content: center;
       align-items: center;
       padding: 8px;
-      background: radial-gradient(circle at top, rgba(17,17,17,0.04), transparent 55%);
+      background: radial-gradient(circle at top, rgba(17, 17, 17, 0.04), transparent 55%);
     }
 
     .card {
@@ -51,15 +50,25 @@
       width: 120px;
       height: 120px;
       object-fit: contain;
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.12));
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.12));
+    }
+
+    .wordmark,
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
     }
 
     .wordmark {
-      margin: 0;
-      font-family: 'Cormorant Garamond', serif;
       font-size: clamp(1.8rem, 5vw, 2.4rem);
       letter-spacing: 0.18em;
       text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(1.7rem, 6vw, 2.8rem);
+      margin: 1.5rem 0 .5rem;
+      letter-spacing: 0.03em;
     }
 
     .subtitle {
@@ -67,13 +76,6 @@
       font-size: 1rem;
       color: #4b5563;
       font-style: italic;
-    }
-
-    h1 {
-      font-size: clamp(1.7rem, 6vw, 2.8rem);
-      margin: 1.5rem 0 .5rem;
-      font-family: 'Cormorant Garamond', serif;
-      letter-spacing: 0.03em;
     }
 
     p {
@@ -117,11 +119,6 @@
       transform: translateY(-2px);
     }
 
-    .btn:active {
-      transform: translateY(0);
-      box-shadow: 0 3px 0 #000;
-    }
-
     .btn.primary {
       background: #000;
       color: #fff;
@@ -129,32 +126,18 @@
 
     .details {
       padding: 1rem 1.25rem;
-      background: rgba(17,17,17,0.04);
+      background: rgba(17, 17, 17, 0.04);
       border-radius: 12px;
       font-size: .95rem;
       color: #4b5563;
     }
-
-    code {
-      font-family: 'Fira Code', 'SFMono-Regular', Consolas, monospace;
-      background: rgba(17,17,17,0.08);
-      padding: 0.08rem 0.35rem;
-      border-radius: 6px;
-      font-size: .88rem;
-    }
-
-    @media (max-width: 520px) {
-      .logo-mark {
-        width: 96px;
-        height: 96px;
-      }
-    }
   </style>
 </head>
+
 <body>
   <main class="card">
     <section class="brand">
-      <img class="logo-mark" src="./assets/shared-lens-logo.png" alt="Shared Lens logo">
+      <img class="logo-mark" src="/assets/shared-lens-logo.png" alt="Shared Lens logo" />
       <h2 class="wordmark">Shared Lens</h2>
       <p class="subtitle">Curate and share wedding memories effortlessly</p>
     </section>
@@ -167,7 +150,7 @@
     <span class="hint">Error code: 404</span>
 
     <div class="button-group">
-      <a class="btn primary" href="/">Go to SharedLens.ca</a>
+      <a class="btn primary" href="/">Go to Shared Lens</a>
       <a class="btn" href="/form">Create a gallery</a>
     </div>
 
@@ -176,4 +159,5 @@
     </div>
   </main>
 </body>
+
 </html>

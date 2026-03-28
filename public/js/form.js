@@ -312,7 +312,7 @@ function setUserMenu() {
     authBtn.onclick = async () => {
       try {
         await logout();
-        await refreshSession();
+        window.location.href = '/';
       } catch (error) {
         alert(error.message || 'Sign-out failed.');
       }

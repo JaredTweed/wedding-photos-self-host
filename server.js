@@ -1,5 +1,7 @@
 const crypto = require('crypto');
+const fsSync = require('fs');
 const fs = require('fs/promises');
+const os = require('os');
 const path = require('path');
 
 const archiver = require('archiver');
@@ -20,6 +22,8 @@ const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || 'change-this-password');
 const SESSION_SECRET = String(process.env.SESSION_SECRET || process.env.COOKIE_SECRET || 'change-this-session-secret');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
+const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+const RUNNING_IN_CONTAINER = fsSync.existsSync('/.dockerenv');
 
 const ADMIN_COOKIE = 'sharedlens_admin';
 const UPLOADER_COOKIE = 'sharedlens_uploader';
@@ -306,8 +310,77 @@ function comparePassword(input) {
   return crypto.timingSafeEqual(left, right);
 }
 
+let cachedPreferredLanAddress = null;
+
+function isPrivateIpv4(address) {
+  return /^10\./.test(address)
+    || /^192\.168\./.test(address)
+    || /^172\.(1[6-9]|2\d|3[0-1])\./.test(address);
+}
+
+function isVirtualInterfaceName(name) {
+  return /^(lo|docker\d*|br-|veth|cni|flannel|virbr|zt|tailscale|tun|tap)/i.test(name);
+}
+
+function isContainerOnlyInterfaceName(name) {
+  return /^eth\d+$/i.test(name);
+}
+
+function preferredLanAddress() {
+  if (cachedPreferredLanAddress !== null) return cachedPreferredLanAddress;
+
+  const interfaces = os.networkInterfaces();
+  let fallbackIpv4 = '';
+  let fallbackIpv6 = '';
+
+  for (const [name, entries] of Object.entries(interfaces)) {
+    if (isVirtualInterfaceName(name)) continue;
+    if (RUNNING_IN_CONTAINER && isContainerOnlyInterfaceName(name)) continue;
+
+    for (const entry of entries || []) {
+      if (!entry || entry.internal) continue;
+      if (entry.family === 'IPv4') {
+        if (isPrivateIpv4(entry.address)) {
+          cachedPreferredLanAddress = entry.address;
+          return cachedPreferredLanAddress;
+        }
+        if (!fallbackIpv4) fallbackIpv4 = entry.address;
+      } else if (entry.family === 'IPv6' && !fallbackIpv6) {
+        fallbackIpv6 = entry.address;
+      }
+    }
+  }
+
+  if (RUNNING_IN_CONTAINER) {
+    cachedPreferredLanAddress = '';
+    return cachedPreferredLanAddress;
+  }
+
+  cachedPreferredLanAddress = fallbackIpv4 || fallbackIpv6 || '';
+  return cachedPreferredLanAddress;
+}
+
+function isLoopbackHostname(hostname) {
+  return hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '::1'
+    || hostname === '0.0.0.0';
+}
+
 function siteUrlForRequest(request, slug) {
-  return `${request.protocol}://${request.get('host')}/${slug}`;
+  if (PUBLIC_BASE_URL) {
+    return `${PUBLIC_BASE_URL}/${slug}`;
+  }
+
+  const baseUrl = new URL(`${request.protocol}://${request.get('host')}`);
+  if (isLoopbackHostname(baseUrl.hostname)) {
+    const lanAddress = preferredLanAddress();
+    if (lanAddress) {
+      baseUrl.hostname = lanAddress;
+    }
+  }
+
+  return `${baseUrl.origin}/${slug}`;
 }
 
 function serializeSite(site, request) {

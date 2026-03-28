@@ -24,6 +24,13 @@ This repo now runs as a fully self-hosted app.
 
 Uploaded data is persisted in the local `./data` directory through the compose volume.
 
+## Shareable Links
+
+- When the app is accessed via `localhost` or loopback, it now tries to replace that hostname with the machine's LAN IP in the editor links and QR codes.
+- In Docker, the container cannot reliably infer your host machine's LAN IP, so set `PUBLIC_BASE_URL` to your actual shareable address.
+- To force an exact public address or domain, set `PUBLIC_BASE_URL`, for example:
+  `PUBLIC_BASE_URL=http://192.168.1.50:3000`
+
 ## Notes
 
 - The landing page uses `/demo` as the built-in empty demo gallery.

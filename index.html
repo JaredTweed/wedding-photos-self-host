@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shared Lens</title>
+  <meta name="theme-color" content="#111111">
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+  <link rel="stylesheet" href="/styles/shared.css">
+</head>
+<body>
+  <div class="shell topbar">
+    <div class="spread">
+      <span class="pill">Self-hosted mode</span>
+      <a class="btn btn-ghost" href="/form">Admin</a>
+    </div>
+  </div>
+
+  <main class="shell stack">
+    <section class="card stack">
+      <div class="brand">
+        <img class="logo-mark" src="/assets/shared-lens-logo.png" alt="Shared Lens logo">
+        <h1 class="wordmark">Shared Lens</h1>
+        <p class="subtitle">Different perspectives, one story.</p>
+      </div>
+
+      <hr class="rule">
+
+      <p class="lead">
+        Shared Lens now runs as a fully self-hosted gallery. There is no Firebase, no Google sign-in,
+        no Stripe, and no cloud storage dependency at runtime. The admin side is protected with a local password,
+        and uploads are stored on disk inside the Docker volume.
+      </p>
+
+      <div class="grid-two">
+        <section class="stack">
+          <p class="eyebrow">Admin Access</p>
+          <p class="muted">Use the password configured in Docker to create or edit galleries.</p>
+
+          <div id="authNotice" class="notice hidden"></div>
+
+          <form id="loginForm" class="stack">
+            <div class="field">
+              <label for="password">Admin Password</label>
+              <input class="text-input" id="password" type="password" autocomplete="current-password" placeholder="Enter password">
+            </div>
+            <div class="cluster">
+              <button class="btn btn-primary" type="submit">Unlock Admin</button>
+            </div>
+          </form>
+
+          <div class="cluster">
+            <button id="openAdminButton" class="btn btn-primary hidden" type="button">Open Admin</button>
+            <button id="logoutButton" class="btn btn-ghost hidden" type="button">Sign Out</button>
+          </div>
+        </section>
+
+        <section class="stack">
+          <p class="eyebrow">Existing Galleries</p>
+          <p class="muted">Published galleries on this server appear here.</p>
+          <div id="galleryList" class="list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/scripts/index.js"></script>
+</body>
+</html>

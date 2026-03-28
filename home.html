@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gallery · Shared Lens</title>
+  <meta name="theme-color" content="#111111">
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+  <link rel="stylesheet" href="/styles/shared.css">
+  <link rel="stylesheet" href="/styles/gallery.css">
+</head>
+<body>
+  <main class="shell gallery-shell">
+    <section class="card gallery-top">
+      <div class="spread">
+        <div class="stack" style="gap:0.35rem;">
+          <p class="eyebrow">Shared Lens Gallery</p>
+          <h1 id="pageTitle" class="wordmark" style="font-size:clamp(1.35rem,4vw,2.3rem);">Loading…</h1>
+          <p id="pageSubtitle" class="muted">Preparing gallery…</p>
+        </div>
+        <div class="gallery-actions">
+          <button id="addButton" class="btn btn-primary" type="button">Add Photos / Videos</button>
+          <button id="downloadButton" class="btn btn-ghost" type="button">Download All</button>
+          <button id="nameButton" class="btn btn-ghost" type="button">Set Credit Name</button>
+          <button id="editButton" class="btn btn-ghost hidden" type="button">Edit Gallery</button>
+        </div>
+      </div>
+
+      <input id="filePicker" type="file" accept="image/*,video/*,.mov,.MOV,.mp4,.webm" multiple hidden>
+
+      <div class="spread">
+        <div class="tabs" role="tablist" aria-label="Gallery views">
+          <button id="tabAll" class="tab-button" type="button" role="tab" aria-selected="true">All Uploads</button>
+          <button id="tabMine" class="tab-button" type="button" role="tab" aria-selected="false">My Uploads</button>
+        </div>
+        <a class="btn btn-ghost" href="/">Home</a>
+      </div>
+
+      <div id="statusNotice" class="notice hidden"></div>
+    </section>
+
+    <section class="card gallery-panel">
+      <div id="panelAll" class="gallery-grid"></div>
+      <div id="panelMine" class="gallery-grid hidden"></div>
+    </section>
+  </main>
+
+  <div id="overlay" class="gallery-overlay" aria-hidden="true">
+    <div class="overlay-card">
+      <div class="overlay-head">
+        <div class="overlay-text">
+          <p id="overlayTitle" class="overlay-title"></p>
+          <p id="overlayMeta" class="overlay-subtitle"></p>
+          <p id="overlayCredit" class="overlay-subtitle"></p>
+        </div>
+        <div class="overlay-actions">
+          <button id="overlayDelete" class="btn btn-danger hidden" type="button">Delete</button>
+          <button id="overlayClose" class="btn btn-ghost" type="button">Close</button>
+        </div>
+      </div>
+      <div id="overlayMedia" class="overlay-media"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/scripts/home.js"></script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gallery Admin · Shared Lens</title>
+  <meta name="theme-color" content="#111111">
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+  <link rel="stylesheet" href="/styles/shared.css">
+  <link rel="stylesheet" href="/styles/form.css">
+</head>
+<body>
+  <div class="shell topbar">
+    <div class="spread">
+      <a class="btn btn-ghost" href="/">Home</a>
+      <button id="logoutButton" class="btn btn-ghost hidden" type="button">Sign Out</button>
+    </div>
+  </div>
+
+  <main class="shell admin-layout">
+    <section class="card stack" id="authCard">
+      <div class="brand">
+        <img class="logo-mark" src="/assets/shared-lens-logo.png" alt="Shared Lens logo">
+        <h1 class="wordmark">Shared Lens</h1>
+        <p class="subtitle">Self-hosted gallery admin</p>
+      </div>
+
+      <hr class="rule">
+
+      <p class="lead">
+        Payment has been removed. Sign in with the local admin password configured in Docker,
+        then create or edit galleries from this page.
+      </p>
+
+      <div id="authNotice" class="notice hidden"></div>
+
+      <form id="authForm" class="stack">
+        <div class="field">
+          <label for="authPassword">Admin Password</label>
+          <input id="authPassword" class="text-input" type="password" autocomplete="current-password" placeholder="Enter password">
+        </div>
+        <div class="cluster">
+          <button class="btn btn-primary" type="submit">Unlock Admin</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card stack hidden" id="editorCard">
+      <div class="spread">
+        <div class="stack" style="gap:0.35rem;">
+          <p class="eyebrow">Gallery Builder</p>
+          <h1 class="wordmark" style="font-size:clamp(1.3rem,3vw,2rem);">Create Or Update A Gallery</h1>
+          <p class="muted">Changes save locally on this server and are immediately available under `/<slug>`.</p>
+        </div>
+        <span class="pill">Payments Removed</span>
+      </div>
+
+      <div class="notice notice-success">
+        <p>Self-hosted mode is active. This setup stores gallery configs and uploaded files locally inside the Docker volume.</p>
+      </div>
+
+      <form id="siteForm" class="admin-form">
+        <div class="field">
+          <label for="siteTitle">Gallery Title</label>
+          <input id="siteTitle" class="text-input" type="text" placeholder="Wedding Photos">
+          <p class="field-help">Letters and numbers only, with single spaces between words. The title becomes the public URL slug.</p>
+        </div>
+
+        <section class="slider-group">
+          <div class="slider-head">
+            <div class="stack" style="gap:0.3rem;">
+              <p class="eyebrow">Theme Color</p>
+              <p class="muted">Choose the accent used across the gallery.</p>
+            </div>
+            <div id="colorPreview" class="slider-preview" aria-hidden="true"></div>
+          </div>
+
+          <p id="colorReadout" class="slider-readout">hsl(96 23.7% 54%)</p>
+
+          <div class="slider-block">
+            <div class="slider-row">
+              <span>Hue</span>
+              <span id="hueValue" class="slider-value">96°</span>
+            </div>
+            <input id="hue" class="range-input" type="range" min="0" max="360" step="1" value="96">
+          </div>
+
+          <div class="slider-block">
+            <div class="slider-row">
+              <span>Saturation</span>
+              <span id="satValue" class="slider-value">23.7%</span>
+            </div>
+            <input id="sat" class="range-input" type="range" min="0" max="100" step="0.1" value="23.7">
+          </div>
+
+          <div class="slider-block">
+            <div class="slider-row">
+              <span>Lightness</span>
+              <span id="lightValue" class="slider-value">54%</span>
+            </div>
+            <input id="light" class="range-input" type="range" min="0" max="100" step="0.1" value="54">
+          </div>
+        </section>
+
+        <div class="field">
+          <label for="siteFont">Gallery Font</label>
+          <select id="siteFont" class="select-input">
+            <option value="serif">Elegant Serif</option>
+            <option value="sans">Modern Sans</option>
+          </select>
+        </div>
+
+        <div class="admin-actions">
+          <button id="publishButton" class="btn btn-primary" type="submit">Save Gallery</button>
+        </div>
+      </form>
+
+      <div id="resultBox" class="notice hidden">
+        <p id="resultText"></p>
+        <div id="resultActions" class="result-actions"></div>
+      </div>
+
+      <section id="deleteSection" class="delete-zone hidden">
+        <h3>Delete this gallery</h3>
+        <p>Type "<span id="deletePhrase"></span>" to permanently remove the gallery and all uploaded files.</p>
+        <div class="field">
+          <input id="deleteConfirm" class="text-input" type="text" placeholder="delete Wedding Photos">
+        </div>
+        <div class="cluster">
+          <button id="deleteButton" class="btn btn-danger" type="button">Delete Gallery</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="card stack">
+      <div class="spread">
+        <div class="stack" style="gap:0.35rem;">
+          <p class="eyebrow">Saved Galleries</p>
+          <p id="galleriesStatus" class="status-line">Loading…</p>
+        </div>
+      </div>
+      <div id="galleriesList" class="site-links"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/scripts/form.js"></script>
+</body>
+</html>

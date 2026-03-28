@@ -1,0 +1,16 @@
+services:
+  shared-lens:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      DATA_DIR: /data
+      ADMIN_PASSWORD: change-me
+      COOKIE_SECRET: change-me-too
+    volumes:
+      - shared-lens-data:/data
+    restart: unless-stopped
+
+volumes:
+  shared-lens-data:

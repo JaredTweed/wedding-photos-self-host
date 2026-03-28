@@ -166,6 +166,10 @@
       border-top: 1px solid #d4d4d4;
     }
 
+    .user-cell {
+      min-width: 0;
+    }
+
     .user-name {
       font-weight: 700;
       word-break: break-word;
@@ -193,6 +197,32 @@
       .user-row {
         grid-template-columns: 1fr;
         gap: .35rem;
+        padding: 1rem;
+      }
+
+      .user-cell {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .user-cell::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        font-size: .8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: #555;
+      }
+
+      .user-cell-primary {
+        display: block;
+      }
+
+      .user-cell-primary::before {
+        display: none;
       }
     }
   </style>

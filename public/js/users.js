@@ -25,18 +25,26 @@ function renderUsers(users) {
     const row = document.createElement('div');
     row.className = 'user-row';
     const nameCell = document.createElement('div');
+    nameCell.className = 'user-cell user-cell-primary';
+    nameCell.dataset.label = 'User';
     const nameValue = document.createElement('div');
     nameValue.className = 'user-name';
     nameValue.textContent = user.username;
     nameCell.appendChild(nameValue);
 
     const siteCountCell = document.createElement('div');
+    siteCountCell.className = 'user-cell';
+    siteCountCell.dataset.label = 'Sites';
     siteCountCell.textContent = String(user.siteCount || 0);
 
     const uploadCountCell = document.createElement('div');
+    uploadCountCell.className = 'user-cell';
+    uploadCountCell.dataset.label = 'Uploads';
     uploadCountCell.textContent = String(user.uploadCount || 0);
 
     const bytesCell = document.createElement('div');
+    bytesCell.className = 'user-cell';
+    bytesCell.dataset.label = 'Used';
     bytesCell.textContent = formatBytes(user.bytesUsed);
 
     row.append(nameCell, siteCountCell, uploadCountCell, bytesCell);

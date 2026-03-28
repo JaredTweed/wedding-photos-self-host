@@ -25,8 +25,6 @@ const publishButton = document.getElementById('publishButton');
 const donationGate = document.getElementById('donationGate');
 const donationGateText = document.getElementById('donationGateText');
 const siteResult = document.getElementById('siteResult');
-const storageUsageButton = document.getElementById('storageUsageButton');
-const storageUsageRow = storageUsageButton.parentElement;
 const deleteSection = document.getElementById('deleteSiteSection');
 const deletePhraseEl = document.getElementById('deleteSitePhrase');
 const deleteInput = document.getElementById('deleteSiteConfirm');
@@ -157,6 +155,16 @@ function createNoticeButton(info) {
   return element;
 }
 
+function storageAvailabilityAction() {
+  return {
+    label: 'Storage Availability',
+    variant: 'btn-outline',
+    onClick: () => {
+      window.location.href = '/users';
+    }
+  };
+}
+
 function showSiteNotice(message) {
   if (!message) {
     siteResult.style.display = 'none';
@@ -187,10 +195,15 @@ function showSiteNotice(message) {
   if (message.suffix) textBlock.appendChild(document.createTextNode(message.suffix));
   siteResult.appendChild(textBlock);
 
-  if (Array.isArray(message.buttons) && message.buttons.length) {
+  const buttons = Array.isArray(message.buttons) ? [...message.buttons] : [];
+  if (isAuthenticatedSession(currentSession) && message.includeStorageAction !== false) {
+    buttons.push(storageAvailabilityAction());
+  }
+
+  if (buttons.length) {
     const actions = document.createElement('div');
     actions.className = 'notice-actions';
-    for (const buttonInfo of message.buttons) {
+    for (const buttonInfo of buttons) {
       const button = createNoticeButton(buttonInfo);
       if (button) actions.appendChild(button);
     }
@@ -347,7 +360,9 @@ async function loadEditableSite() {
       return;
     }
     resetFormToDefaults();
-    showSiteNotice('');
+    showSiteNotice({
+      text: 'Create your site below.'
+    });
   } catch (error) {
     if (slugParam && error.status === 404) {
       resetFormToDefaults();
@@ -363,8 +378,6 @@ async function loadEditableSite() {
 async function refreshSession() {
   currentSession = await getSession();
   setUserMenu();
-  storageUsageRow.style.display = isAuthenticatedSession(currentSession) ? 'grid' : 'none';
-  storageUsageButton.style.display = isAuthenticatedSession(currentSession) ? 'inline-flex' : 'none';
   if (isAuthenticatedSession(currentSession)) {
     setPublishLockState({ locked: false, message: '' });
   } else {
@@ -462,9 +475,6 @@ function initUserMenu() {
 function initFormEvents() {
   formEl.addEventListener('submit', submitForm);
   deleteButton.addEventListener('click', handleDeleteSite);
-  storageUsageButton.addEventListener('click', () => {
-    window.location.href = '/users';
-  });
   siteTitleInput.addEventListener('input', () => refreshDeleteSection());
 }
 

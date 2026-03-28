@@ -2,10 +2,6 @@ import { ensureAdminSession, getSession } from '/js/api.js';
 
 const createButton = document.getElementById('createSiteButton');
 
-window.viewDemo = function viewDemo() {
-  window.location.href = '/demo';
-};
-
 window.signInWithPassword = async function signInWithPassword() {
   try {
     const signedIn = await ensureAdminSession();

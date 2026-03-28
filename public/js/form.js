@@ -56,11 +56,13 @@ function updateColor() {
   document.documentElement.style.setProperty('--primary', color);
   document.documentElement.style.setProperty('--current-hue', hue);
   document.documentElement.style.setProperty('--current-sat', sat);
+  document.documentElement.style.setProperty('--current-light', light);
   document.getElementById('hslValue').textContent = color;
   document.getElementById('colorPreviewLarge').style.background = color;
   document.getElementById('hueValue').textContent = `${hue}°`;
   document.getElementById('satValue').textContent = `${sat}%`;
   document.getElementById('lightValue').textContent = `${light}%`;
+  updateHueGradient(sat, light);
 
   document.getElementById('sat').style.background = `linear-gradient(to right,
     hsl(${hue}, 0%, 50%) 0%,
@@ -72,14 +74,17 @@ function updateColor() {
     hsl(${hue}, ${sat}%, 100%) 100%)`;
 }
 
-function generatePerfectHueGradient() {
+function updateHueGradient(sat, light) {
   const canvas = document.getElementById('hueGradientCanvas');
   const context = canvas.getContext('2d');
   for (let x = 0; x < canvas.width; x += 1) {
-    context.fillStyle = `hsl(${x}, 100%, 50%)`;
+    context.fillStyle = `hsl(${x} ${sat}% ${light}%)`;
     context.fillRect(x, 0, 1, 1);
   }
-  document.querySelector('.hue').style.backgroundImage = `url(${canvas.toDataURL()})`;
+  const hueSlider = document.querySelector('.hue');
+  hueSlider.style.backgroundImage = `url(${canvas.toDataURL()})`;
+  hueSlider.style.backgroundSize = '100% 100%';
+  hueSlider.style.backgroundRepeat = 'no-repeat';
 }
 
 function installRangeGuards() {
@@ -463,7 +468,6 @@ function initFormEvents() {
   siteTitleInput.addEventListener('input', () => refreshDeleteSection());
 }
 
-generatePerfectHueGradient();
 installRangeGuards();
 updateColor();
 initUserMenu();

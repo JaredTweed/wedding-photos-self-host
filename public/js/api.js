@@ -67,21 +67,46 @@ export function formatTimestamp(rawValue) {
   return `${timePart}, ${datePart}`;
 }
 
-export function promptForPassword() {
-  const value = window.prompt('Enter the admin password.');
-  if (value == null) return null;
-  const trimmed = value.trim();
-  return trimmed || null;
+export function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const unit = units[unitIndex];
+  if (unit === 'GB') {
+    return `${size.toFixed(1)} ${unit}`;
+  }
+
+  const digits = size >= 100 || unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${unit}`;
+}
+
+export function isAuthenticatedSession(session) {
+  return Boolean(session?.isAuthenticated && session?.user);
 }
 
 export async function getSession() {
   return apiFetch('/api/auth/session');
 }
 
-export async function login(password) {
+export async function login({ username, password }) {
   return apiFetch('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ password })
+    body: JSON.stringify({ username, password })
+  });
+}
+
+export async function register({ username, password }) {
+  return apiFetch('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password })
   });
 }
 
@@ -89,17 +114,6 @@ export async function logout() {
   return apiFetch('/api/auth/logout', {
     method: 'POST'
   });
-}
-
-export async function ensureAdminSession({ prompt = true } = {}) {
-  const session = await getSession();
-  if (session.isAdmin) return true;
-  if (!prompt) return false;
-
-  const password = promptForPassword();
-  if (!password) return false;
-  await login(password);
-  return true;
 }
 
 export async function downloadBlob(url, fallbackName) {

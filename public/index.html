@@ -96,6 +96,64 @@
       gap: .75rem;
       margin: 1rem auto 1.25rem;
       justify-items: center;
+      width: min(360px, 100%);
+    }
+
+    .auth-form {
+      width: 100%;
+      display: grid;
+      gap: .75rem;
+      text-align: left;
+    }
+
+    .auth-form label {
+      display: inline-block;
+      margin-bottom: .3rem;
+      font-weight: 600;
+    }
+
+    .auth-form input {
+      width: 100%;
+      padding: .85rem 1rem;
+      border-radius: 12px;
+      border: 2px solid #000;
+      background: #fff;
+      font-size: 1rem;
+      box-shadow: 0 4px 0 #000;
+      outline: none;
+      transition: transform .12s ease;
+    }
+
+    .auth-form input:focus {
+      transform: translateY(-1px);
+    }
+
+    .auth-actions {
+      display: grid;
+      gap: .75rem;
+    }
+
+    .account-panel {
+      display: none;
+      width: 100%;
+      gap: .75rem;
+      justify-items: center;
+    }
+
+    .account-panel.show {
+      display: grid;
+    }
+
+    .account-status {
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .helper-text {
+      margin-top: .35rem;
+      font-size: .85rem;
+      color: #555;
+      min-height: 1.2rem;
     }
 
     .btn {
@@ -158,11 +216,32 @@
     </p>
 
     <p>
-      Shared Lens allows wedding guests to share and manage photos, and enjoy others’ contributions, all without logging in.
+      Shared Lens allows site owners to manage their own galleries with an account, while guests can still share photos and videos without logging in.
     </p>
 
     <div class="button-group">
-      <button class="btn btn-outline" id="createSiteButton" onclick="signInWithPassword()">Enter Password to Create Your Own</button>
+      <form class="auth-form" id="authForm">
+        <div>
+          <label for="usernameInput">Username</label>
+          <input id="usernameInput" type="text" autocomplete="username" placeholder="yourname" />
+        </div>
+        <div>
+          <label for="passwordInput">Password</label>
+          <input id="passwordInput" type="password" autocomplete="current-password" placeholder="At least 8 characters" />
+        </div>
+        <div class="auth-actions" id="signedOutActions">
+          <button class="btn btn-fill" id="signInButton" type="submit">Sign In</button>
+          <button class="btn btn-outline" id="createAccountButton" type="button">Create Account</button>
+        </div>
+      </form>
+
+      <div class="account-panel" id="accountPanel">
+        <p class="account-status" id="accountStatus">Signed in</p>
+        <button class="btn btn-fill" id="openEditorButton" type="button">Open Site Editor</button>
+        <button class="btn btn-outline" id="signOutButton" type="button">Sign Out</button>
+      </div>
+
+      <p class="helper-text" id="authMessage" aria-live="polite"></p>
     </div>
   </main>
 

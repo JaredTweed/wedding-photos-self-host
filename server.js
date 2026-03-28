@@ -3,6 +3,7 @@ const fsSync = require('fs');
 const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
+const { promisify } = require('util');
 
 const archiver = require('archiver');
 const express = require('express');
@@ -19,21 +20,26 @@ const TMP_DIR = path.join(DATA_DIR, 'tmp');
 
 const HOST = String(process.env.HOST || '0.0.0.0');
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
-const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || 'change-this-password');
 const SESSION_SECRET = String(process.env.SESSION_SECRET || process.env.COOKIE_SECRET || 'change-this-session-secret');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
 const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
 const RUNNING_IN_CONTAINER = fsSync.existsSync('/.dockerenv');
 
-const ADMIN_COOKIE = 'sharedlens_admin';
+const SESSION_COOKIE = 'sharedlens_session';
+const LEGACY_ADMIN_COOKIE = 'sharedlens_admin';
 const UPLOADER_COOKIE = 'sharedlens_uploader';
-const ADMIN_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const UPLOADER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365 * 2;
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 200;
+const USERNAME_MAX_LENGTH = 32;
+const SCRYPT_KEYLEN = 64;
 
 const DEFAULT_PRIMARY_COLOR = 'hsl(96 23.7% 54%)';
 const DEFAULT_FONT_FAMILY = 'serif';
 const TITLE_RE = /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/;
 const VALID_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const USERNAME_RE = /^[A-Za-z0-9._-]+$/;
 const RESERVED_SLUGS = new Set([
   'api',
   'assets',
@@ -41,8 +47,11 @@ const RESERVED_SLUGS = new Set([
   'js',
   'form',
   'home',
+  'users',
   '404'
 ]);
+
+const scryptAsync = promisify(crypto.scrypt);
 
 class HttpError extends Error {
   constructor(statusCode, message) {
@@ -55,7 +64,7 @@ class HttpError extends Error {
 class DataStore {
   constructor(filePath) {
     this.filePath = filePath;
-    this.data = { sites: [], uploads: [] };
+    this.data = { users: [], sites: [], uploads: [] };
     this.writeChain = Promise.resolve();
   }
 
@@ -65,15 +74,41 @@ class DataStore {
       const raw = await fs.readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(raw);
       this.data = {
+        users: Array.isArray(parsed.users) ? parsed.users : [],
         sites: Array.isArray(parsed.sites) ? parsed.sites : [],
         uploads: Array.isArray(parsed.uploads) ? parsed.uploads : []
       };
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
-      this.data = { sites: [], uploads: [] };
+      this.data = { users: [], sites: [], uploads: [] };
     }
 
     let mutated = false;
+    for (const user of this.data.users) {
+      if (!user.usernameKey && user.username) {
+        user.usernameKey = String(user.username).toLowerCase();
+        mutated = true;
+      }
+      if (!user.createdAt) {
+        user.createdAt = new Date().toISOString();
+        mutated = true;
+      }
+    }
+
+    for (const site of this.data.sites) {
+      if (!Object.prototype.hasOwnProperty.call(site, 'ownerUserId')) {
+        site.ownerUserId = null;
+        mutated = true;
+      }
+    }
+
+    for (const upload of this.data.uploads) {
+      if (typeof upload.size !== 'number') {
+        upload.size = Number(upload.size || 0);
+        mutated = true;
+      }
+    }
+
     if (!this.data.sites.some((site) => site.slug === 'demo')) {
       this.data.sites.push({
         id: crypto.randomUUID(),
@@ -84,6 +119,7 @@ class DataStore {
         storageDir: 'demo',
         createdAt: '2025-01-01T00:00:00.000Z',
         updatedAt: '2025-01-01T00:00:00.000Z',
+        ownerUserId: null,
         system: true
       });
       mutated = true;
@@ -117,11 +153,27 @@ class DataStore {
     return this.data.sites.find((site) => site.slug === slug) || null;
   }
 
-  getLatestEditableSite() {
+  getLatestEditableSite(ownerUserId) {
     return this.data.sites
-      .filter((site) => !site.system)
+      .filter((site) => !site.system && site.ownerUserId === ownerUserId)
       .slice()
       .sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt))[0] || null;
+  }
+
+  getOwnedSiteBySlug(ownerUserId, slug) {
+    return this.data.sites.find((site) => (
+      site.slug === slug
+      && !site.system
+      && site.ownerUserId === ownerUserId
+    )) || null;
+  }
+
+  getUserById(userId) {
+    return this.data.users.find((user) => user.id === userId) || null;
+  }
+
+  getUserByUsernameKey(usernameKey) {
+    return this.data.users.find((user) => user.usernameKey === usernameKey) || null;
   }
 
   getUploadsForSite(siteId) {
@@ -156,6 +208,35 @@ function normalizeCreditName(value) {
   return String(value || '').trim().slice(0, 80);
 }
 
+function normalizeUsername(value) {
+  const username = String(value || '').trim();
+  if (!username) {
+    throw new HttpError(400, 'A username is required.');
+  }
+  if (username.length < 3 || username.length > USERNAME_MAX_LENGTH) {
+    throw new HttpError(400, `Username must be between 3 and ${USERNAME_MAX_LENGTH} characters.`);
+  }
+  if (!USERNAME_RE.test(username)) {
+    throw new HttpError(400, 'Username may only contain letters, numbers, dots, underscores, and hyphens.');
+  }
+  return username;
+}
+
+function usernameKeyFor(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizePassword(value) {
+  const password = String(value || '');
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    throw new HttpError(400, `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+  }
+  if (password.length > PASSWORD_MAX_LENGTH) {
+    throw new HttpError(400, `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`);
+  }
+  return password;
+}
+
 function normalizeFontFamily(value) {
   return value === 'sans' ? 'sans' : DEFAULT_FONT_FAMILY;
 }
@@ -177,6 +258,14 @@ function toSlug(title) {
     throw new HttpError(400, 'That title is reserved. Please choose a different site name.');
   }
   return slug;
+}
+
+function serializeUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    createdAt: user.createdAt
+  };
 }
 
 function hmac(value) {
@@ -245,6 +334,35 @@ function clearCookie(response, name) {
   response.append('Set-Cookie', serializeCookie(name, '', { maxAgeSeconds: 0 }));
 }
 
+function setSessionCookie(response, userId) {
+  const token = createSignedToken({
+    userId,
+    exp: Date.now() + (SESSION_COOKIE_MAX_AGE_SECONDS * 1000)
+  });
+  response.append(
+    'Set-Cookie',
+    serializeCookie(SESSION_COOKIE, token, { maxAgeSeconds: SESSION_COOKIE_MAX_AGE_SECONDS })
+  );
+  clearCookie(response, LEGACY_ADMIN_COOKIE);
+}
+
+async function hashPassword(password) {
+  const passwordSalt = crypto.randomBytes(16).toString('hex');
+  const derived = await scryptAsync(password, passwordSalt, SCRYPT_KEYLEN);
+  return {
+    passwordSalt,
+    passwordHash: Buffer.from(derived).toString('hex')
+  };
+}
+
+async function verifyPassword(password, user) {
+  if (!user?.passwordSalt || !user?.passwordHash) return false;
+  const derived = Buffer.from(await scryptAsync(String(password || ''), user.passwordSalt, SCRYPT_KEYLEN));
+  const expected = Buffer.from(String(user.passwordHash), 'hex');
+  if (!expected.length || expected.length !== derived.length) return false;
+  return crypto.timingSafeEqual(derived, expected);
+}
+
 function parseDateValue(rawValue) {
   if (!rawValue) return null;
   const parsed = new Date(rawValue);
@@ -303,11 +421,102 @@ function createArchiveName(createdAt, originalName) {
   return `${stamp}-${sanitizeFileName(originalName)}`;
 }
 
-function comparePassword(input) {
-  const left = Buffer.from(String(input || ''), 'utf8');
-  const right = Buffer.from(ADMIN_PASSWORD, 'utf8');
-  if (left.length !== right.length) return false;
-  return crypto.timingSafeEqual(left, right);
+function serializeSession(request) {
+  return {
+    isAuthenticated: Boolean(request.user),
+    user: request.user ? serializeUser(request.user) : null
+  };
+}
+
+async function readDiskTotals() {
+  if (typeof fs.statfs !== 'function') {
+    return {
+      totalBytes: null,
+      availableBytes: null
+    };
+  }
+
+  try {
+    const stats = await fs.statfs(DATA_DIR);
+    return {
+      totalBytes: Number(stats.blocks || 0) * Number(stats.bsize || 0),
+      availableBytes: Number(stats.bavail || 0) * Number(stats.bsize || 0)
+    };
+  } catch {
+    return {
+      totalBytes: null,
+      availableBytes: null
+    };
+  }
+}
+
+async function buildStorageUsageReport(data) {
+  const rowsByUser = new Map(
+    data.users.map((user) => [
+      user.id,
+      {
+        id: user.id,
+        username: user.username,
+        bytesUsed: 0,
+        uploadCount: 0,
+        siteCount: 0
+      }
+    ])
+  );
+
+  const ownerBySiteId = new Map();
+  for (const site of data.sites) {
+    if (!site.system && site.ownerUserId) {
+      ownerBySiteId.set(site.id, site.ownerUserId);
+      const row = rowsByUser.get(site.ownerUserId);
+      if (row) {
+        row.siteCount += 1;
+      }
+    }
+  }
+
+  let appBytesUsed = 0;
+  let unassignedBytesUsed = 0;
+  for (const upload of data.uploads) {
+    const size = Number(upload.size || 0);
+    appBytesUsed += size;
+    const ownerUserId = ownerBySiteId.get(upload.siteId);
+    if (!ownerUserId) {
+      unassignedBytesUsed += size;
+      continue;
+    }
+    const row = rowsByUser.get(ownerUserId);
+    if (!row) {
+      unassignedBytesUsed += size;
+      continue;
+    }
+    row.bytesUsed += size;
+    row.uploadCount += 1;
+  }
+
+  const users = Array.from(rowsByUser.values())
+    .sort((left, right) => (
+      right.bytesUsed - left.bytesUsed
+      || left.username.localeCompare(right.username, undefined, { sensitivity: 'base' })
+    ));
+
+  const diskTotals = await readDiskTotals();
+  const storageBytesRemaining = diskTotals.availableBytes;
+  const storageBytesTotal = storageBytesRemaining == null
+    ? null
+    : appBytesUsed + storageBytesRemaining;
+
+  return {
+    users,
+    totals: {
+      appBytesUsed,
+      storageBytesTotal,
+      storageBytesRemaining,
+      diskBytesTotal: diskTotals.totalBytes,
+      diskBytesAvailable: diskTotals.availableBytes,
+      unassignedBytesUsed
+    }
+  };
 }
 
 let cachedPreferredLanAddress = null;
@@ -455,8 +664,8 @@ async function main() {
   app.use(express.json({ limit: '2mb' }));
   app.use((request, _response, next) => {
     request.cookies = parseCookies(request);
-    request.adminSession = verifySignedToken(request.cookies[ADMIN_COOKIE]);
-    request.isAdmin = Boolean(request.adminSession && request.adminSession.role === 'admin');
+    request.userSession = verifySignedToken(request.cookies[SESSION_COOKIE]);
+    request.user = store.getUserById(request.userSession?.userId || '');
     request.uploaderSession = verifySignedToken(request.cookies[UPLOADER_COOKIE]);
     request.uploaderId = request.uploaderSession?.uploaderId || null;
     next();
@@ -477,56 +686,94 @@ async function main() {
     next();
   }
 
-  function requireAdmin(request, _response, next) {
-    if (!request.isAdmin) {
-      next(new HttpError(401, 'Please sign in with the admin password first.'));
+  function requireUser(request, _response, next) {
+    if (!request.user) {
+      next(new HttpError(401, 'Please sign in first.'));
       return;
     }
     next();
   }
 
   app.post('/api/auth/login', asyncHandler(async (request, response) => {
+    const username = normalizeUsername(request.body?.username);
     const password = String(request.body?.password || '');
-    if (!comparePassword(password)) {
-      throw new HttpError(401, 'The password was incorrect.');
+    const user = store.getUserByUsernameKey(usernameKeyFor(username));
+    if (!user || !(await verifyPassword(password, user))) {
+      throw new HttpError(401, 'The username or password was incorrect.');
     }
 
-    const token = createSignedToken({
-      role: 'admin',
-      exp: Date.now() + (ADMIN_COOKIE_MAX_AGE_SECONDS * 1000)
+    setSessionCookie(response, user.id);
+    response.json({
+      isAuthenticated: true,
+      user: serializeUser(user)
     });
-    response.append(
-      'Set-Cookie',
-      serializeCookie(ADMIN_COOKIE, token, { maxAgeSeconds: ADMIN_COOKIE_MAX_AGE_SECONDS })
-    );
-    response.json({ isAdmin: true });
+  }));
+
+  app.post('/api/auth/register', asyncHandler(async (request, response) => {
+    const username = normalizeUsername(request.body?.username);
+    const password = normalizePassword(request.body?.password);
+    const normalizedUsernameKey = usernameKeyFor(username);
+
+    const user = await store.mutate(async (data) => {
+      if (data.users.some((entry) => entry.usernameKey === normalizedUsernameKey)) {
+        throw new HttpError(409, 'That username is already taken.');
+      }
+
+      const createdAt = new Date().toISOString();
+      const created = {
+        id: crypto.randomUUID(),
+        username,
+        usernameKey: normalizedUsernameKey,
+        createdAt,
+        ...(await hashPassword(password))
+      };
+      const shouldClaimLegacySites = data.users.length === 0;
+      data.users.push(created);
+
+      if (shouldClaimLegacySites) {
+        for (const site of data.sites) {
+          if (!site.system && !site.ownerUserId) {
+            site.ownerUserId = created.id;
+          }
+        }
+      }
+
+      return created;
+    });
+
+    setSessionCookie(response, user.id);
+    response.status(201).json({
+      isAuthenticated: true,
+      user: serializeUser(user)
+    });
   }));
 
   app.post('/api/auth/logout', asyncHandler(async (_request, response) => {
-    clearCookie(response, ADMIN_COOKIE);
+    clearCookie(response, SESSION_COOKIE);
+    clearCookie(response, LEGACY_ADMIN_COOKIE);
     response.status(204).end();
   }));
 
   app.get('/api/auth/session', asyncHandler(async (request, response) => {
-    response.json({ isAdmin: request.isAdmin });
+    response.json(serializeSession(request));
   }));
 
-  app.get('/api/admin/sites/current', requireAdmin, asyncHandler(async (request, response) => {
+  app.get('/api/account/sites/current', requireUser, asyncHandler(async (request, response) => {
     const slug = String(request.query.slug || '').trim().toLowerCase();
     if (slug) {
-      const site = store.getSiteBySlug(slug);
-      if (!site || site.system) {
+      const site = store.getOwnedSiteBySlug(request.user.id, slug);
+      if (!site) {
         throw new HttpError(404, `No site named "${slug}" was found.`);
       }
       response.json({ site: serializeSite(site, request) });
       return;
     }
 
-    const latest = store.getLatestEditableSite();
+    const latest = store.getLatestEditableSite(request.user.id);
     response.json({ site: latest ? serializeSite(latest, request) : null });
   }));
 
-  app.post('/api/admin/sites', requireAdmin, asyncHandler(async (request, response) => {
+  app.post('/api/account/sites', requireUser, asyncHandler(async (request, response) => {
     const title = String(request.body?.title || '').trim().replace(/\s+/g, ' ');
     const primaryColor = normalizePrimaryColor(request.body?.primaryColor);
     const fontFamily = normalizeFontFamily(request.body?.fontFamily);
@@ -535,8 +782,14 @@ async function main() {
     const now = new Date().toISOString();
 
     const site = await store.mutate(async (data) => {
-      const current = existingSlug ? data.sites.find((entry) => entry.slug === existingSlug) : null;
-      if (existingSlug && (!current || current.system)) {
+      const current = existingSlug
+        ? data.sites.find((entry) => (
+          entry.slug === existingSlug
+          && !entry.system
+          && entry.ownerUserId === request.user.id
+        ))
+        : null;
+      if (existingSlug && !current) {
         throw new HttpError(404, 'That site no longer exists.');
       }
 
@@ -563,6 +816,7 @@ async function main() {
         storageDir: crypto.randomUUID(),
         createdAt: now,
         updatedAt: now,
+        ownerUserId: request.user.id,
         system: false
       };
       data.sites.push(created);
@@ -577,10 +831,10 @@ async function main() {
     response.json({ site: serializeSite(site, request) });
   }));
 
-  app.delete('/api/admin/sites/:slug', requireAdmin, asyncHandler(async (request, response) => {
+  app.delete('/api/account/sites/:slug', requireUser, asyncHandler(async (request, response) => {
     const slug = String(request.params.slug || '').trim().toLowerCase();
-    const site = store.getSiteBySlug(slug);
-    if (!site || site.system) {
+    const site = store.getOwnedSiteBySlug(request.user.id, slug);
+    if (!site) {
       throw new HttpError(404, 'That site no longer exists.');
     }
 
@@ -599,6 +853,10 @@ async function main() {
     );
 
     response.status(204).end();
+  }));
+
+  app.get('/api/users/storage', requireUser, asyncHandler(async (_request, response) => {
+    response.json(await buildStorageUsageReport(store.data));
   }));
 
   app.get('/api/sites/:slug', ensureUploaderCookie, asyncHandler(async (request, response) => {
@@ -840,6 +1098,10 @@ async function main() {
     response.sendFile(path.join(PUBLIC_DIR, 'home.html'));
   });
 
+  app.get('/users', (_request, response) => {
+    response.sendFile(path.join(PUBLIC_DIR, 'users.html'));
+  });
+
   app.get('/:slug', (request, response, next) => {
     const slug = String(request.params.slug || '').trim().toLowerCase();
     if (!VALID_SLUG_RE.test(slug) || RESERVED_SLUGS.has(slug)) {
@@ -870,9 +1132,6 @@ async function main() {
     response.status(statusCode).json({ error: message });
   });
 
-  if (ADMIN_PASSWORD === 'change-this-password') {
-    console.warn('ADMIN_PASSWORD is using the default placeholder. Set a real password before exposing this server.');
-  }
   if (SESSION_SECRET === 'change-this-session-secret') {
     console.warn('SESSION_SECRET is using the default placeholder. Set a real secret before exposing this server.');
   }

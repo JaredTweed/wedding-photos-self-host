@@ -2,21 +2,16 @@ import {
   apiFetch,
   avatarDataUri,
   downloadBlob,
-  ensureAdminSession,
   getSession,
+  isAuthenticatedSession,
   logout
 } from '/js/api.js';
-
-const FONT_OPTIONS = {
-  serif: `Georgia, "Times New Roman", serif`,
-  sans: `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-};
 
 const DEFAULT_FONT_KEY = 'serif';
 
 let editingSite = null;
 let deleteConfirmPhrase = '';
-let currentSession = { isAdmin: false };
+let currentSession = { isAuthenticated: false, user: null };
 
 const formEl = document.getElementById('siteForm');
 const userbar = document.getElementById('sl-userbar');
@@ -30,6 +25,8 @@ const publishButton = document.getElementById('publishButton');
 const donationGate = document.getElementById('donationGate');
 const donationGateText = document.getElementById('donationGateText');
 const siteResult = document.getElementById('siteResult');
+const storageUsageButton = document.getElementById('storageUsageButton');
+const storageUsageRow = storageUsageButton.parentElement;
 const deleteSection = document.getElementById('deleteSiteSection');
 const deletePhraseEl = document.getElementById('deleteSitePhrase');
 const deleteInput = document.getElementById('deleteSiteConfirm');
@@ -305,9 +302,9 @@ function setUserMenu() {
     window.location.href = '/';
   };
 
-  if (currentSession.isAdmin) {
-    avatarEl.src = avatarDataUri('A');
-    avatarEl.title = 'Admin';
+  if (isAuthenticatedSession(currentSession)) {
+    avatarEl.src = avatarDataUri(currentSession.user.username);
+    avatarEl.title = currentSession.user.username;
     authBtn.textContent = 'Sign out';
     authBtn.onclick = async () => {
       try {
@@ -321,20 +318,14 @@ function setUserMenu() {
     avatarEl.src = avatarDataUri('?', { background: '#f3f4f6', color: '#6b7280' });
     avatarEl.title = 'Not signed in';
     authBtn.textContent = 'Sign in';
-    authBtn.onclick = async () => {
-      try {
-        const signedIn = await ensureAdminSession();
-        if (!signedIn) return;
-        await refreshSession();
-      } catch (error) {
-        alert(error.message || 'Sign-in failed.');
-      }
+    authBtn.onclick = () => {
+      window.location.href = '/';
     };
   }
 }
 
 async function loadEditableSite() {
-  if (!currentSession.isAdmin) {
+  if (!isAuthenticatedSession(currentSession)) {
     editingSite = null;
     refreshDeleteSection({ resetInput: true });
     showSiteNotice('');
@@ -343,8 +334,8 @@ async function loadEditableSite() {
 
   try {
     const endpoint = slugParam
-      ? `/api/admin/sites/current?slug=${encodeURIComponent(slugParam)}`
-      : '/api/admin/sites/current';
+      ? `/api/account/sites/current?slug=${encodeURIComponent(slugParam)}`
+      : '/api/account/sites/current';
     const payload = await apiFetch(endpoint);
     if (payload.site) {
       applySiteToForm(payload.site);
@@ -367,12 +358,14 @@ async function loadEditableSite() {
 async function refreshSession() {
   currentSession = await getSession();
   setUserMenu();
-  if (currentSession.isAdmin) {
+  storageUsageRow.style.display = isAuthenticatedSession(currentSession) ? 'grid' : 'none';
+  storageUsageButton.style.display = isAuthenticatedSession(currentSession) ? 'inline-flex' : 'none';
+  if (isAuthenticatedSession(currentSession)) {
     setPublishLockState({ locked: false, message: '' });
   } else {
     setPublishLockState({
       locked: true,
-      message: 'Sign in with the admin password to publish or edit a site.'
+      message: 'Sign in on the main page, or create an account there, to publish or edit your site.'
     });
   }
   await loadEditableSite();
@@ -385,13 +378,12 @@ async function submitForm(event) {
   publishButton.textContent = editingSite ? 'Saving...' : 'Publishing...';
 
   try {
-    if (!currentSession.isAdmin) {
-      const signedIn = await ensureAdminSession();
-      if (!signedIn) return;
-      await refreshSession();
+    if (!isAuthenticatedSession(currentSession)) {
+      window.location.href = '/';
+      return;
     }
 
-    const payload = await apiFetch('/api/admin/sites', {
+    const payload = await apiFetch('/api/account/sites', {
       method: 'POST',
       body: JSON.stringify({
         title: siteTitleInput.value,
@@ -409,7 +401,7 @@ async function submitForm(event) {
   } catch (error) {
     alert(error.message || 'Could not save the site.');
   } finally {
-    publishButton.disabled = !currentSession.isAdmin;
+    publishButton.disabled = !isAuthenticatedSession(currentSession);
     publishButton.textContent = originalText;
   }
 }
@@ -433,7 +425,7 @@ async function handleDeleteSite() {
   deleteButton.textContent = 'Deleting...';
 
   try {
-    await apiFetch(`/api/admin/sites/${encodeURIComponent(editingSite.slug)}`, {
+    await apiFetch(`/api/account/sites/${encodeURIComponent(editingSite.slug)}`, {
       method: 'DELETE'
     });
     resetFormToDefaults();
@@ -465,6 +457,9 @@ function initUserMenu() {
 function initFormEvents() {
   formEl.addEventListener('submit', submitForm);
   deleteButton.addEventListener('click', handleDeleteSite);
+  storageUsageButton.addEventListener('click', () => {
+    window.location.href = '/users';
+  });
   siteTitleInput.addEventListener('input', () => refreshDeleteSection());
 }
 

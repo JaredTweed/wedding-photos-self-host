@@ -9,6 +9,10 @@ const userRows = document.getElementById('userRows');
 const mainButton = document.getElementById('mainButton');
 const editorButton = document.getElementById('editorButton');
 const signOutButton = document.getElementById('signOutButton');
+const REFRESH_INTERVAL_MS = 5000;
+
+let refreshTimer = null;
+let refreshInFlight = false;
 
 function renderUsers(users) {
   userRows.innerHTML = '';
@@ -52,6 +56,55 @@ function renderUsers(users) {
   }
 }
 
+async function refreshStorage({ redirectOnAuthFailure = false } = {}) {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
+
+  try {
+    const payload = await apiFetch('/api/users/storage');
+    renderUsers(payload.users || []);
+
+    totalUsed.textContent = formatBytes(payload.totals?.appBytesUsed);
+    totalCapacity.textContent = payload.totals?.storageBytesTotal == null
+      ? 'Unavailable'
+      : formatBytes(payload.totals.storageBytesTotal);
+    remainingAvailable.textContent = payload.totals?.storageBytesRemaining == null
+      ? 'Unavailable'
+      : formatBytes(payload.totals.storageBytesRemaining);
+
+    if (payload.totals?.unassignedBytesUsed > 0) {
+      unassignedNote.style.display = 'block';
+      unassignedNote.textContent = `${formatBytes(payload.totals.unassignedBytesUsed)} is currently stored outside any user-owned site, so it is included in Total Used but not assigned to a user row.`;
+    } else {
+      unassignedNote.style.display = 'none';
+      unassignedNote.textContent = '';
+    }
+  } catch (error) {
+    if (redirectOnAuthFailure && error?.status === 401) {
+      window.location.replace('/');
+      return;
+    }
+    console.error(error);
+  } finally {
+    refreshInFlight = false;
+  }
+}
+
+function startLiveRefresh() {
+  stopLiveRefresh();
+  refreshTimer = window.setInterval(() => {
+    if (document.hidden) return;
+    refreshStorage();
+  }, REFRESH_INTERVAL_MS);
+}
+
+function stopLiveRefresh() {
+  if (refreshTimer) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
 async function init() {
   const session = await getSession();
   if (!isAuthenticatedSession(session)) {
@@ -60,22 +113,15 @@ async function init() {
   }
 
   sessionLabel.textContent = `Signed in as ${session.user.username}`;
+  await refreshStorage({ redirectOnAuthFailure: true });
+  startLiveRefresh();
 
-  const payload = await apiFetch('/api/users/storage');
-  renderUsers(payload.users || []);
-
-  totalUsed.textContent = formatBytes(payload.totals?.appBytesUsed);
-  totalCapacity.textContent = payload.totals?.storageBytesTotal == null
-    ? 'Unavailable'
-    : formatBytes(payload.totals.storageBytesTotal);
-  remainingAvailable.textContent = payload.totals?.storageBytesRemaining == null
-    ? 'Unavailable'
-    : formatBytes(payload.totals.storageBytesRemaining);
-
-  if (payload.totals?.unassignedBytesUsed > 0) {
-    unassignedNote.style.display = 'block';
-    unassignedNote.textContent = `${formatBytes(payload.totals.unassignedBytesUsed)} is currently stored outside any user-owned site, so it is included in Total Used but not assigned to a user row.`;
-  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refreshStorage();
+    }
+  });
+  window.addEventListener('beforeunload', stopLiveRefresh);
 }
 
 mainButton.addEventListener('click', () => {

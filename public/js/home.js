@@ -37,9 +37,7 @@ let selectedIds = new Set();
 let indicatorTimeout = null;
 
 const initialPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
-const currentSlug = !initialPath || initialPath === 'home' || initialPath === 'home.html'
-  ? 'demo'
-  : initialPath;
+const currentSlug = initialPath;
 
 const activeTabStorageKey = `sharedlens_active_tab_${currentSlug}`;
 const creditStorageKey = `sharedlens_credit_${currentSlug}`;
@@ -676,11 +674,8 @@ async function init() {
     await refreshUploads();
   } catch (error) {
     console.error(error);
-    if (currentSlug !== 'demo') {
-      window.location.replace('/404.html');
-      return;
-    }
-    alert(error.message || 'Could not load the gallery.');
+    window.location.replace('/404.html');
+    return;
   } finally {
     showLoader(false);
   }

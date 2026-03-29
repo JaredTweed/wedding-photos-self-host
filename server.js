@@ -109,19 +109,19 @@ class DataStore {
       }
     }
 
-    if (!this.data.sites.some((site) => site.slug === 'demo')) {
-      this.data.sites.push({
-        id: crypto.randomUUID(),
-        slug: 'demo',
-        title: 'Wedding Photos',
-        primaryColor: DEFAULT_PRIMARY_COLOR,
-        fontFamily: DEFAULT_FONT_FAMILY,
-        storageDir: 'demo',
-        createdAt: '2025-01-01T00:00:00.000Z',
-        updatedAt: '2025-01-01T00:00:00.000Z',
-        ownerUserId: null,
-        system: true
-      });
+    const legacyDemoSites = this.data.sites.filter((site) => site.slug === 'demo');
+    if (legacyDemoSites.length) {
+      const legacyDemoIds = new Set(legacyDemoSites.map((site) => site.id));
+      const legacyDemoStorageDirs = legacyDemoSites
+        .map((site) => site.storageDir)
+        .filter(Boolean);
+      this.data.sites = this.data.sites.filter((site) => site.slug !== 'demo');
+      this.data.uploads = this.data.uploads.filter((upload) => !legacyDemoIds.has(upload.siteId));
+      await Promise.allSettled(
+        legacyDemoStorageDirs.map((storageDir) => (
+          fs.rm(path.join(MEDIA_DIR, storageDir), { recursive: true, force: true })
+        ))
+      );
       mutated = true;
     }
 
@@ -1092,10 +1092,6 @@ async function main() {
 
   app.get('/form', (_request, response) => {
     response.sendFile(path.join(PUBLIC_DIR, 'form.html'));
-  });
-
-  app.get('/home', (_request, response) => {
-    response.sendFile(path.join(PUBLIC_DIR, 'home.html'));
   });
 
   app.get('/users', (_request, response) => {

@@ -7,7 +7,7 @@ This repo now runs as a fully self-hosted app.
 - Uploaded originals and thumbnails are stored under `data/media/`
 - Site owners create their own username/password accounts, and each site belongs to its owner account
 - Guest uploads use a signed uploader cookie so each browser can only delete its own files
-- `/users` shows per-user storage usage plus overall disk totals for the self-hosted instance
+- The editor includes a `Storage Availability` page at `/users` that shows per-user storage usage, total used, remaining available, and total capacity, and refreshes live while open
 - Stripe, Firebase, Firestore, Google login, S3, Cognito, and external QR generation have been removed
 
 ## Run Locally
@@ -36,6 +36,7 @@ Uploaded data is persisted in the local `./data` directory through the compose v
 
 ## Notes
 
-- The landing page uses `/demo` as the built-in empty demo gallery.
-- If you already had legacy non-demo sites from the old single-password version, the first account you create will automatically claim those existing sites.
+- If you already had legacy sites from the old single-password version, the first account you create will automatically claim those existing sites.
+- Any old built-in `/demo` site entry is removed automatically on startup.
 - If a browser clears its cookies, that browser loses delete access to uploads it previously made. This matches the anonymous-upload model, but the restriction is now enforced server-side instead of by localStorage alone.
+- On the `Storage Availability` page, `Total Capacity` is defined as `Total Used + Remaining Available`, so those three values always add up cleanly.

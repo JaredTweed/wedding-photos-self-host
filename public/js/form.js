@@ -219,43 +219,74 @@ async function downloadQr(site) {
   await downloadBlob(`/api/sites/${site.slug}/qr?download=1`, `${site.slug}-qr.png`);
 }
 
+function isLoopbackHostname(hostname) {
+  return hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname === '0.0.0.0'
+    || hostname === '::1'
+    || hostname === '[::1]';
+}
+
+function isLinkLocalHostname(hostname) {
+  return /^169\.254\./.test(hostname)
+    || /^fe80:/i.test(hostname)
+    || /^\[fe80:/i.test(hostname);
+}
+
+function isLikelyShareableSiteUrl(siteUrl) {
+  try {
+    const parsed = new URL(siteUrl);
+    if (!/^https?:$/i.test(parsed.protocol)) return false;
+    const hostname = String(parsed.hostname || '').trim().toLowerCase();
+    if (!hostname) return false;
+    return !isLoopbackHostname(hostname) && !isLinkLocalHostname(hostname);
+  } catch {
+    return false;
+  }
+}
+
 function buildSiteNotice(site, { success = false } = {}) {
+  const buttons = [
+    {
+      label: 'View Site',
+      variant: 'btn-outline',
+      onClick: () => {
+        window.open(site.siteUrl, '_blank', 'noopener,noreferrer');
+      }
+    },
+    {
+      label: 'Download Photos',
+      variant: 'btn-outline',
+      onClick: async () => {
+        try {
+          await downloadPhotos(site);
+        } catch (error) {
+          alert(error.message || 'Could not download the photos.');
+        }
+      }
+    }
+  ];
+
+  if (isLikelyShareableSiteUrl(site.siteUrl)) {
+    buttons.push({
+      label: 'Download QR Code',
+      variant: 'btn-outline',
+      onClick: async () => {
+        try {
+          await downloadQr(site);
+        } catch (error) {
+          alert(error.message || 'Could not download the QR code.');
+        }
+      }
+    });
+  }
+
   return {
     state: success ? 'success' : 'notice',
     prefix: success ? 'Your site is ready at ' : 'Editing site: ',
     linkHref: site.siteUrl,
     linkText: site.siteUrl,
-    buttons: [
-      {
-        label: 'View Site',
-        variant: 'btn-outline',
-        onClick: () => {
-          window.open(site.siteUrl, '_blank', 'noopener,noreferrer');
-        }
-      },
-      {
-        label: 'Download Photos',
-        variant: 'btn-outline',
-        onClick: async () => {
-          try {
-            await downloadPhotos(site);
-          } catch (error) {
-            alert(error.message || 'Could not download the photos.');
-          }
-        }
-      },
-      {
-        label: 'Download QR Code',
-        variant: 'btn-outline',
-        onClick: async () => {
-          try {
-            await downloadQr(site);
-          } catch (error) {
-            alert(error.message || 'Could not download the QR code.');
-          }
-        }
-      }
-    ]
+    buttons
   };
 }
 

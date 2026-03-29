@@ -34,6 +34,9 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 200;
 const USERNAME_MAX_LENGTH = 32;
 const SCRYPT_KEYLEN = 64;
+const MEDIA_CACHE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const ASSET_CACHE_MAX_AGE_SECONDS = 60 * 60;
+const MAX_QR_CACHE_ENTRIES = 128;
 
 const DEFAULT_PRIMARY_COLOR = 'hsl(96 23.7% 54%)';
 const DEFAULT_FONT_FAMILY = 'serif';
@@ -66,6 +69,17 @@ class DataStore {
     this.filePath = filePath;
     this.data = { users: [], sites: [], uploads: [] };
     this.writeChain = Promise.resolve();
+    this.siteById = new Map();
+    this.siteBySlug = new Map();
+    this.userById = new Map();
+    this.userByUsernameKey = new Map();
+    this.uploadById = new Map();
+    this.uploadsBySiteId = new Map();
+    this.uploadsBySiteUploaderKey = new Map();
+    this.latestEditableSiteByOwner = new Map();
+    this.storageUsageByUserId = new Map();
+    this.totalAppBytesUsed = 0;
+    this.unassignedBytesUsed = 0;
   }
 
   async init() {
@@ -125,6 +139,8 @@ class DataStore {
       mutated = true;
     }
 
+    this.rebuildIndexes();
+
     if (mutated) {
       await this.persist();
     }
@@ -140,6 +156,7 @@ class DataStore {
   mutate(mutator) {
     const run = async () => {
       const result = await mutator(this.data);
+      this.rebuildIndexes();
       await this.persist();
       return result;
     };
@@ -149,47 +166,136 @@ class DataStore {
     return operation;
   }
 
+  rebuildIndexes() {
+    this.siteById.clear();
+    this.siteBySlug.clear();
+    this.userById.clear();
+    this.userByUsernameKey.clear();
+    this.uploadById.clear();
+    this.uploadsBySiteId.clear();
+    this.uploadsBySiteUploaderKey.clear();
+    this.latestEditableSiteByOwner.clear();
+    this.storageUsageByUserId.clear();
+    this.totalAppBytesUsed = 0;
+    this.unassignedBytesUsed = 0;
+
+    for (const user of this.data.users) {
+      this.userById.set(user.id, user);
+      this.userByUsernameKey.set(user.usernameKey, user);
+      this.storageUsageByUserId.set(user.id, {
+        id: user.id,
+        username: user.username,
+        bytesUsed: 0,
+        uploadCount: 0,
+        siteCount: 0
+      });
+    }
+
+    for (const site of this.data.sites) {
+      this.siteById.set(site.id, site);
+      this.siteBySlug.set(site.slug, site);
+
+      if (!site.system && site.ownerUserId) {
+        const storageRow = this.storageUsageByUserId.get(site.ownerUserId);
+        if (storageRow) {
+          storageRow.siteCount += 1;
+        }
+
+        const previousLatest = this.latestEditableSiteByOwner.get(site.ownerUserId);
+        if (!previousLatest || new Date(site.updatedAt).getTime() > new Date(previousLatest.updatedAt).getTime()) {
+          this.latestEditableSiteByOwner.set(site.ownerUserId, site);
+        }
+      }
+    }
+
+    for (const upload of this.data.uploads) {
+      this.uploadById.set(upload.id, upload);
+
+      const uploadsForSite = this.uploadsBySiteId.get(upload.siteId) || [];
+      uploadsForSite.push(upload);
+      this.uploadsBySiteId.set(upload.siteId, uploadsForSite);
+
+      const uploaderKey = siteUploaderKey(upload.siteId, upload.uploaderId);
+      const uploadsForUploader = this.uploadsBySiteUploaderKey.get(uploaderKey) || [];
+      uploadsForUploader.push(upload);
+      this.uploadsBySiteUploaderKey.set(uploaderKey, uploadsForUploader);
+
+      const size = Number(upload.size || 0);
+      this.totalAppBytesUsed += size;
+
+      const ownerUserId = this.siteById.get(upload.siteId)?.ownerUserId;
+      const storageRow = ownerUserId ? this.storageUsageByUserId.get(ownerUserId) : null;
+      if (!storageRow) {
+        this.unassignedBytesUsed += size;
+        continue;
+      }
+
+      storageRow.bytesUsed += size;
+      storageRow.uploadCount += 1;
+    }
+
+    for (const uploads of this.uploadsBySiteId.values()) {
+      uploads.sort((left, right) => uploadSortTime(right) - uploadSortTime(left));
+    }
+    for (const uploads of this.uploadsBySiteUploaderKey.values()) {
+      uploads.sort((left, right) => uploadSortTime(right) - uploadSortTime(left));
+    }
+  }
+
   getSiteBySlug(slug) {
-    return this.data.sites.find((site) => site.slug === slug) || null;
+    return this.siteBySlug.get(slug) || null;
+  }
+
+  getSiteById(siteId) {
+    return this.siteById.get(siteId) || null;
   }
 
   getLatestEditableSite(ownerUserId) {
-    return this.data.sites
-      .filter((site) => !site.system && site.ownerUserId === ownerUserId)
-      .slice()
-      .sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt))[0] || null;
+    return this.latestEditableSiteByOwner.get(ownerUserId) || null;
   }
 
   getOwnedSiteBySlug(ownerUserId, slug) {
-    return this.data.sites.find((site) => (
-      site.slug === slug
-      && !site.system
-      && site.ownerUserId === ownerUserId
-    )) || null;
+    const site = this.siteBySlug.get(slug) || null;
+    if (!site || site.system || site.ownerUserId !== ownerUserId) return null;
+    return site;
   }
 
   getUserById(userId) {
-    return this.data.users.find((user) => user.id === userId) || null;
+    return this.userById.get(userId) || null;
   }
 
   getUserByUsernameKey(usernameKey) {
-    return this.data.users.find((user) => user.usernameKey === usernameKey) || null;
+    return this.userByUsernameKey.get(usernameKey) || null;
   }
 
   getUploadsForSite(siteId) {
-    return this.data.uploads
-      .filter((upload) => upload.siteId === siteId)
-      .slice()
-      .sort((left, right) => {
-        const leftDate = new Date(left.takenAt || left.createdAt).getTime();
-        const rightDate = new Date(right.takenAt || right.createdAt).getTime();
-        return rightDate - leftDate;
-      });
+    return (this.uploadsBySiteId.get(siteId) || []).slice();
+  }
+
+  getUploadsForSiteAndUploader(siteId, uploaderId) {
+    return (this.uploadsBySiteUploaderKey.get(siteUploaderKey(siteId, uploaderId)) || []).slice();
   }
 
   getUploadById(uploadId) {
-    return this.data.uploads.find((upload) => upload.id === uploadId) || null;
+    return this.uploadById.get(uploadId) || null;
   }
+
+  getStorageUsageRows() {
+    return Array.from(this.storageUsageByUserId.values())
+      .map((entry) => ({ ...entry }))
+      .sort((left, right) => (
+        right.bytesUsed - left.bytesUsed
+        || left.username.localeCompare(right.username, undefined, { sensitivity: 'base' })
+      ));
+  }
+}
+
+function uploadSortTime(upload) {
+  return Date.parse(upload.takenAt || upload.createdAt || 0) || 0;
+}
+
+function siteUploaderKey(siteId, uploaderId) {
+  return `${siteId}:${uploaderId || ''}`;
 }
 
 function asyncHandler(handler) {
@@ -450,71 +556,23 @@ async function readDiskTotals() {
   }
 }
 
-async function buildStorageUsageReport(data) {
-  const rowsByUser = new Map(
-    data.users.map((user) => [
-      user.id,
-      {
-        id: user.id,
-        username: user.username,
-        bytesUsed: 0,
-        uploadCount: 0,
-        siteCount: 0
-      }
-    ])
-  );
-
-  const ownerBySiteId = new Map();
-  for (const site of data.sites) {
-    if (!site.system && site.ownerUserId) {
-      ownerBySiteId.set(site.id, site.ownerUserId);
-      const row = rowsByUser.get(site.ownerUserId);
-      if (row) {
-        row.siteCount += 1;
-      }
-    }
-  }
-
-  let appBytesUsed = 0;
-  let unassignedBytesUsed = 0;
-  for (const upload of data.uploads) {
-    const size = Number(upload.size || 0);
-    appBytesUsed += size;
-    const ownerUserId = ownerBySiteId.get(upload.siteId);
-    if (!ownerUserId) {
-      unassignedBytesUsed += size;
-      continue;
-    }
-    const row = rowsByUser.get(ownerUserId);
-    if (!row) {
-      unassignedBytesUsed += size;
-      continue;
-    }
-    row.bytesUsed += size;
-    row.uploadCount += 1;
-  }
-
-  const users = Array.from(rowsByUser.values())
-    .sort((left, right) => (
-      right.bytesUsed - left.bytesUsed
-      || left.username.localeCompare(right.username, undefined, { sensitivity: 'base' })
-    ));
-
+async function buildStorageUsageReport(store) {
+  const users = store.getStorageUsageRows();
   const diskTotals = await readDiskTotals();
   const storageBytesRemaining = diskTotals.availableBytes;
   const storageBytesTotal = storageBytesRemaining == null
     ? null
-    : appBytesUsed + storageBytesRemaining;
+    : store.totalAppBytesUsed + storageBytesRemaining;
 
   return {
     users,
     totals: {
-      appBytesUsed,
+      appBytesUsed: store.totalAppBytesUsed,
       storageBytesTotal,
       storageBytesRemaining,
       diskBytesTotal: diskTotals.totalBytes,
       diskBytesAvailable: diskTotals.availableBytes,
-      unassignedBytesUsed
+      unassignedBytesUsed: store.unassignedBytesUsed
     }
   };
 }
@@ -626,6 +684,43 @@ async function ensureDirectories() {
   ]);
 }
 
+const ensuredStorageDirs = new Set();
+const qrCodeCache = new Map();
+
+async function ensureSiteDirectories(site) {
+  if (!site?.storageDir || ensuredStorageDirs.has(site.storageDir)) return;
+  await Promise.all([
+    fs.mkdir(originalDirectory(site), { recursive: true }),
+    fs.mkdir(thumbnailDirectory(site), { recursive: true })
+  ]);
+  ensuredStorageDirs.add(site.storageDir);
+}
+
+function rememberQrCode(url, buffer) {
+  if (qrCodeCache.has(url)) {
+    qrCodeCache.delete(url);
+  }
+  qrCodeCache.set(url, buffer);
+  if (qrCodeCache.size > MAX_QR_CACHE_ENTRIES) {
+    const oldestKey = qrCodeCache.keys().next().value;
+    if (oldestKey) {
+      qrCodeCache.delete(oldestKey);
+    }
+  }
+}
+
+function getCachedQrCode(url) {
+  const cached = qrCodeCache.get(url);
+  if (!cached) return null;
+  qrCodeCache.delete(url);
+  qrCodeCache.set(url, cached);
+  return cached;
+}
+
+function setImmutableCacheHeaders(response) {
+  response.setHeader('Cache-Control', `public, max-age=${MEDIA_CACHE_MAX_AGE_SECONDS}, immutable`);
+}
+
 async function cleanupFiles(fileList) {
   await Promise.allSettled(
     fileList
@@ -659,6 +754,7 @@ async function main() {
   await store.init();
 
   const app = express();
+  app.disable('x-powered-by');
   app.set('trust proxy', true);
 
   app.use(express.json({ limit: '2mb' }));
@@ -823,10 +919,7 @@ async function main() {
       return created;
     });
 
-    await Promise.all([
-      fs.mkdir(originalDirectory(site), { recursive: true }),
-      fs.mkdir(thumbnailDirectory(site), { recursive: true })
-    ]);
+    await ensureSiteDirectories(site);
 
     response.json({ site: serializeSite(site, request) });
   }));
@@ -851,12 +944,13 @@ async function main() {
         upload.thumbStoredName ? thumbnailPath(site, upload) : null
       ])
     );
+    ensuredStorageDirs.delete(site.storageDir);
 
     response.status(204).end();
   }));
 
   app.get('/api/users/storage', requireUser, asyncHandler(async (_request, response) => {
-    response.json(await buildStorageUsageReport(store.data));
+    response.json(await buildStorageUsageReport(store));
   }));
 
   app.get('/api/sites/:slug', ensureUploaderCookie, asyncHandler(async (request, response) => {
@@ -899,10 +993,7 @@ async function main() {
         throw new HttpError(400, 'A file upload is required.');
       }
 
-      await Promise.all([
-        fs.mkdir(originalDirectory(site), { recursive: true }),
-        fs.mkdir(thumbnailDirectory(site), { recursive: true })
-      ]);
+      await ensureSiteDirectories(site);
 
       const uploadId = crypto.randomUUID();
       const originalExt = path.extname(originalUpload.originalname || '') || '';
@@ -965,12 +1056,10 @@ async function main() {
 
     const creditName = normalizeCreditName(request.body?.creditName);
     let updated = 0;
-    await store.mutate(async (data) => {
-      for (const upload of data.uploads) {
-        if (upload.siteId === site.id && upload.uploaderId === request.uploaderId) {
-          upload.creditName = creditName;
-          updated += 1;
-        }
+    await store.mutate(async () => {
+      for (const upload of store.getUploadsForSiteAndUploader(site.id, request.uploaderId)) {
+        upload.creditName = creditName;
+        updated += 1;
       }
     });
 
@@ -1047,15 +1136,21 @@ async function main() {
       throw new HttpError(404, 'Site not found.');
     }
 
-    const qrBuffer = await QRCode.toBuffer(siteUrlForRequest(request, site.slug), {
-      type: 'png',
-      width: 512,
-      margin: 1
-    });
+    const siteUrl = siteUrlForRequest(request, site.slug);
+    let qrBuffer = getCachedQrCode(siteUrl);
+    if (!qrBuffer) {
+      qrBuffer = await QRCode.toBuffer(siteUrl, {
+        type: 'png',
+        width: 512,
+        margin: 1
+      });
+      rememberQrCode(siteUrl, qrBuffer);
+    }
 
     if (request.query.download === '1') {
       response.setHeader('Content-Disposition', `attachment; filename="${site.slug}-qr.png"`);
     }
+    response.setHeader('Cache-Control', 'no-store');
     response.type('png').send(qrBuffer);
   }));
 
@@ -1064,11 +1159,12 @@ async function main() {
     if (!upload) {
       throw new HttpError(404, 'File not found.');
     }
-    const site = store.data.sites.find((entry) => entry.id === upload.siteId);
+    const site = store.getSiteById(upload.siteId);
     if (!site) {
       throw new HttpError(404, 'File not found.');
     }
     response.type(upload.mimeType || 'application/octet-stream');
+    setImmutableCacheHeaders(response);
     response.sendFile(originalPath(site, upload));
   }));
 
@@ -1077,14 +1173,29 @@ async function main() {
     if (!upload) {
       throw new HttpError(404, 'File not found.');
     }
-    const site = store.data.sites.find((entry) => entry.id === upload.siteId);
+    const site = store.getSiteById(upload.siteId);
     if (!site) {
       throw new HttpError(404, 'File not found.');
     }
+    setImmutableCacheHeaders(response);
     response.sendFile(thumbnailPath(site, upload));
   }));
 
-  app.use(express.static(PUBLIC_DIR, { index: false }));
+  app.use(express.static(PUBLIC_DIR, {
+    index: false,
+    etag: true,
+    lastModified: true,
+    setHeaders(response, filePath) {
+      const relativePath = path.relative(PUBLIC_DIR, filePath);
+      if (relativePath.startsWith(`assets${path.sep}`)) {
+        response.setHeader('Cache-Control', `public, max-age=${MEDIA_CACHE_MAX_AGE_SECONDS}, immutable`);
+        return;
+      }
+      if (path.extname(filePath) === '.js') {
+        response.setHeader('Cache-Control', `public, max-age=${ASSET_CACHE_MAX_AGE_SECONDS}, must-revalidate`);
+      }
+    }
+  }));
 
   app.get('/', (_request, response) => {
     response.sendFile(path.join(PUBLIC_DIR, 'index.html'));

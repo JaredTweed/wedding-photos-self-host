@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title id="page-title">Shared Lens</title>
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+  <link rel="modulepreload" href="/js/home.js" />
   <style>
     :root {
       --font-size: 1.2rem;
@@ -239,10 +240,13 @@
       position: relative;
       -webkit-touch-callout: none;
       touch-action: manipulation;
+      content-visibility: auto;
+      contain-intrinsic-size: 160px 160px;
     }
 
     img,
     video {
+      display: block;
       -webkit-user-drag: none;
       -webkit-touch-callout: none;
       -webkit-user-select: none;

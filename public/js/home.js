@@ -35,6 +35,8 @@ let uploading = false;
 let downloadAllInProgress = false;
 let selectedIds = new Set();
 let indicatorTimeout = null;
+let scrollFramePending = false;
+let figureRefsByUploadId = new Map();
 
 const initialPath = window.location.pathname.replace(/^\/+|\/+$/g, '');
 const currentSlug = initialPath;
@@ -95,17 +97,21 @@ function showDateIndicator(text) {
 }
 
 function onScroll() {
-  if (overlay.classList.contains('visible')) return;
-  const panel = getActivePanel();
-  if (!panel) return;
+  if (overlay.classList.contains('visible') || scrollFramePending) return;
+  scrollFramePending = true;
+  window.requestAnimationFrame(() => {
+    scrollFramePending = false;
+    const panel = getActivePanel();
+    if (!panel) return;
 
-  for (const fig of panel.querySelectorAll('figure')) {
-    const rect = fig.getBoundingClientRect();
-    if (rect.top + (rect.height / 2) >= 100) {
-      showDateIndicator(formatTimestamp(Number(fig.dataset.taken)));
-      break;
+    for (const fig of panel.querySelectorAll('figure')) {
+      const rect = fig.getBoundingClientRect();
+      if (rect.top + (rect.height / 2) >= 100) {
+        showDateIndicator(formatTimestamp(Number(fig.dataset.taken)));
+        break;
+      }
     }
-  }
+  });
 }
 
 function updatePanelMessages() {
@@ -133,10 +139,13 @@ function updateToolbar() {
 }
 
 function clearSelection() {
+  const selected = Array.from(selectedIds);
   selectedIds = new Set();
-  document.querySelectorAll('figure.selected').forEach((figure) => {
-    figure.classList.remove('selected');
-  });
+  for (const uploadId of selected) {
+    for (const figure of figureRefsByUploadId.get(uploadId) || []) {
+      figure.classList.remove('selected');
+    }
+  }
   updateToolbar();
 }
 
@@ -147,16 +156,15 @@ function toggleSelection(uploadId) {
     selectedIds.add(uploadId);
   }
 
-  document.querySelectorAll(`figure[data-id="${uploadId}"]`).forEach((figure) => {
+  for (const figure of figureRefsByUploadId.get(uploadId) || []) {
     figure.classList.toggle('selected', selectedIds.has(uploadId));
-  });
+  }
   updateToolbar();
 }
 
 function renderPanels() {
   clearSelection();
-  panelAll.innerHTML = '';
-  panelMine.innerHTML = '';
+  figureRefsByUploadId = new Map();
 
   const allFragment = document.createDocumentFragment();
   const mineFragment = document.createDocumentFragment();
@@ -168,19 +176,28 @@ function renderPanels() {
     }
   }
 
-  panelAll.appendChild(allFragment);
-  panelMine.appendChild(mineFragment);
+  panelAll.replaceChildren(allFragment);
+  panelMine.replaceChildren(mineFragment);
   updatePanelMessages();
+}
+
+function rememberFigure(uploadId, figure) {
+  const figures = figureRefsByUploadId.get(uploadId) || [];
+  figures.push(figure);
+  figureRefsByUploadId.set(uploadId, figures);
 }
 
 function buildFigure(upload, { selectable }) {
   const figure = document.createElement('figure');
   figure.dataset.id = upload.id;
   figure.dataset.taken = String(new Date(upload.takenAt || upload.createdAt).getTime());
+  rememberFigure(upload.id, figure);
 
   const thumb = document.createElement('img');
   thumb.src = upload.thumbnailUrl || upload.mediaUrl;
   thumb.loading = 'lazy';
+  thumb.decoding = 'async';
+  thumb.fetchPriority = 'low';
   thumb.draggable = false;
   figure.appendChild(thumb);
 
@@ -209,34 +226,34 @@ function wireFigureHandlers(figure, upload, selectable) {
   let startY = 0;
   let timer = null;
 
-  figure.addEventListener('pointerdown', (event) => {
-    startX = event.clientX;
-    startY = event.clientY;
-    moved = false;
-    longPress = false;
-    if (!selectable) return;
+  const clearTimer = () => clearTimeout(timer);
 
-    timer = setTimeout(() => {
-      longPress = true;
-      toggleSelection(upload.id);
-    }, 450);
-  });
+  if (selectable) {
+    figure.addEventListener('pointerdown', (event) => {
+      startX = event.clientX;
+      startY = event.clientY;
+      moved = false;
+      longPress = false;
 
-  figure.addEventListener('pointermove', (event) => {
-    if (moved) return;
-    const dx = Math.abs(event.clientX - startX);
-    const dy = Math.abs(event.clientY - startY);
-    if (dx > 8 || dy > 8) {
-      moved = true;
-      clearTimeout(timer);
-    }
-  });
+      timer = setTimeout(() => {
+        longPress = true;
+        toggleSelection(upload.id);
+      }, 450);
+    });
 
-  const clearTimer = () => {
-    clearTimeout(timer);
-  };
+    figure.addEventListener('pointermove', (event) => {
+      if (moved) return;
+      const dx = Math.abs(event.clientX - startX);
+      const dy = Math.abs(event.clientY - startY);
+      if (dx > 8 || dy > 8) {
+        moved = true;
+        clearTimer();
+      }
+    });
 
-  figure.addEventListener('pointercancel', clearTimer);
+    figure.addEventListener('pointercancel', clearTimer);
+  }
+
   figure.addEventListener('pointerup', (event) => {
     clearTimer();
     if (longPress || moved) return;
@@ -502,7 +519,6 @@ async function updateCreditName() {
       currentUpload.creditName = creditName;
       creditEl.textContent = creditName ? `Credit: ${creditName}` : '';
     }
-    renderPanels();
   } catch (error) {
     alert(error.message || 'Could not update upload credits.');
   } finally {
@@ -513,13 +529,14 @@ async function updateCreditName() {
 async function deleteUploads(ids) {
   const targets = ids.filter(Boolean);
   if (!targets.length) return;
+  const targetSet = new Set(targets);
 
   await Promise.all(targets.map((id) => apiFetch(
     `/api/sites/${encodeURIComponent(site.slug)}/uploads/${encodeURIComponent(id)}`,
     { method: 'DELETE' }
   )));
 
-  uploads = uploads.filter((upload) => !targets.includes(upload.id));
+  uploads = uploads.filter((upload) => !targetSet.has(upload.id));
   renderPanels();
 }
 

@@ -7,7 +7,6 @@ This repo now runs as a fully self-hosted app.
 - Uploaded originals and thumbnails are stored under `data/media/`
 - Site owners create their own username/password accounts, and each site belongs to its owner account
 - Guest uploads use a signed uploader cookie so each browser can only delete its own files
-- The editor includes a `Storage Availability` page at `/users` that shows per-user storage usage, total used, remaining available, and total capacity, and refreshes live while open
 
 ## Run Locally
 

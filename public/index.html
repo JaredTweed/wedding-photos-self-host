@@ -213,10 +213,13 @@
     }
 
     .helper-text {
-      margin-top: .35rem;
+      margin: 0;
       font-size: .85rem;
       color: #555;
-      min-height: 1.2rem;
+    }
+
+    .helper-text:empty {
+      display: none;
     }
 
     .btn {

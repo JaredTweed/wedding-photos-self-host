@@ -1,6 +1,8 @@
 # Shared Lens
 
-This repo now runs as a fully self-hosted app.
+Shared Lens allows site owners to manage their own galleries with an account, while guests can still share photos and videos without logging in.
+
+This repo now runs as a fully self-hosted app. 
 
 ## Run With Docker
 

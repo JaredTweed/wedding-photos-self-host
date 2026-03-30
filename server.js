@@ -850,6 +850,20 @@ async function main() {
     response.status(204).end();
   }));
 
+  app.delete('/api/auth/account', requireUser, asyncHandler(async (request, response) => {
+    if (store.getLatestEditableSite(request.user.id)) {
+      throw new HttpError(409, 'Delete your site before deleting your account.');
+    }
+
+    await store.mutate(async (data) => {
+      data.users = data.users.filter((entry) => entry.id !== request.user.id);
+    });
+
+    clearCookie(response, SESSION_COOKIE);
+    clearCookie(response, LEGACY_ADMIN_COOKIE);
+    response.status(204).end();
+  }));
+
   app.get('/api/auth/session', asyncHandler(async (request, response) => {
     response.json(serializeSession(request));
   }));

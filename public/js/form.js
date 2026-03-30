@@ -165,6 +165,18 @@ function storageAvailabilityAction() {
   };
 }
 
+function canDeleteAccount() {
+  return isAuthenticatedSession(currentSession) && !editingSite?.slug;
+}
+
+function deleteAccountAction() {
+  return {
+    label: 'Delete Account',
+    variant: 'btn-danger',
+    onClick: handleDeleteAccount
+  };
+}
+
 function showSiteNotice(message) {
   if (!message) {
     siteResult.style.display = 'none';
@@ -178,26 +190,32 @@ function showSiteNotice(message) {
   siteResult.style.display = 'block';
   siteResult.dataset.state = message.state || 'notice';
 
-  const textBlock = document.createElement('div');
-  textBlock.className = 'notice-text';
+  const hasTextContent = Boolean(message.prefix || message.linkHref || message.text || message.suffix);
+  if (hasTextContent) {
+    const textBlock = document.createElement('div');
+    textBlock.className = 'notice-text';
 
-  if (message.prefix) textBlock.appendChild(document.createTextNode(message.prefix));
-  if (message.linkHref) {
-    const anchor = document.createElement('a');
-    anchor.href = message.linkHref;
-    anchor.textContent = message.linkText || message.linkHref;
-    anchor.target = '_blank';
-    anchor.rel = 'noopener noreferrer';
-    textBlock.appendChild(anchor);
-  } else if (message.text) {
-    textBlock.appendChild(document.createTextNode(message.text));
+    if (message.prefix) textBlock.appendChild(document.createTextNode(message.prefix));
+    if (message.linkHref) {
+      const anchor = document.createElement('a');
+      anchor.href = message.linkHref;
+      anchor.textContent = message.linkText || message.linkHref;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      textBlock.appendChild(anchor);
+    } else if (message.text) {
+      textBlock.appendChild(document.createTextNode(message.text));
+    }
+    if (message.suffix) textBlock.appendChild(document.createTextNode(message.suffix));
+    siteResult.appendChild(textBlock);
   }
-  if (message.suffix) textBlock.appendChild(document.createTextNode(message.suffix));
-  siteResult.appendChild(textBlock);
 
   const buttons = Array.isArray(message.buttons) ? [...message.buttons] : [];
   if (isAuthenticatedSession(currentSession) && message.includeStorageAction !== false) {
     buttons.push(storageAvailabilityAction());
+  }
+  if (canDeleteAccount() && message.includeDeleteAccountAction !== false) {
+    buttons.push(deleteAccountAction());
   }
 
   if (buttons.length) {
@@ -391,9 +409,7 @@ async function loadEditableSite() {
       return;
     }
     resetFormToDefaults();
-    showSiteNotice({
-      text: 'Create your site below.'
-    });
+    showSiteNotice({});
   } catch (error) {
     if (slugParam && error.status === 404) {
       resetFormToDefaults();
@@ -490,6 +506,42 @@ async function handleDeleteSite() {
   } finally {
     deleteButton.disabled = false;
     deleteButton.textContent = 'Delete site permanently';
+  }
+}
+
+async function handleDeleteAccount(event) {
+  if (!isAuthenticatedSession(currentSession)) {
+    window.location.href = '/';
+    return;
+  }
+  if (editingSite?.slug) {
+    alert('Delete your site before deleting your account.');
+    return;
+  }
+  if (!window.confirm('This will permanently delete your account. Continue?')) {
+    return;
+  }
+
+  const actionButton = event?.currentTarget instanceof HTMLButtonElement
+    ? event.currentTarget
+    : null;
+  const originalText = actionButton?.textContent || 'Delete Account';
+  if (actionButton) {
+    actionButton.disabled = true;
+    actionButton.textContent = 'Deleting...';
+  }
+
+  try {
+    await apiFetch('/api/auth/account', {
+      method: 'DELETE'
+    });
+    window.location.href = '/';
+  } catch (error) {
+    alert(error.message || 'Could not delete the account.');
+    if (actionButton) {
+      actionButton.disabled = false;
+      actionButton.textContent = originalText;
+    }
   }
 }
 

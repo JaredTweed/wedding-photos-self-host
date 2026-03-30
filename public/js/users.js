@@ -1,4 +1,4 @@
-import { apiFetch, formatBytes, getSession, isAuthenticatedSession, logout } from '/js/api.js';
+import { apiFetch, formatBytes, getSession, isAuthenticatedSession, logout } from '/js/api.js?v=20260330-2';
 
 const sessionLabel = document.getElementById('sessionLabel');
 const totalUsed = document.getElementById('totalUsed');

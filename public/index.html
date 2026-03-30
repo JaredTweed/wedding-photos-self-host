@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#000000" />
   <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <link rel="preload" as="image" href="/assets/shared-lens-logo.png" />
-  <link rel="modulepreload" href="/js/index.js" />
+  <link rel="modulepreload" href="/js/index.js?v=20260330-2" />
   <style>
     :root {
       --ink: #111;
@@ -130,6 +130,67 @@
       transform: translateY(-1px);
     }
 
+    .input-with-button {
+      position: relative;
+    }
+
+    .field-toggle {
+      position: absolute;
+      top: 50%;
+      right: .55rem;
+      transform: translateY(-50%);
+      width: 2.25rem;
+      height: 2.25rem;
+      padding: 0;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #555;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color .12s ease, color .12s ease;
+    }
+
+    .field-toggle:hover {
+      background: #f3f4f6;
+      color: #111;
+      transform: translateY(-50%);
+    }
+
+    .field-toggle:active {
+      transform: translateY(-50%);
+    }
+
+    .field-toggle:focus-visible {
+      outline: 2px solid #111;
+      outline-offset: 2px;
+    }
+
+    .field-toggle svg {
+      width: 1.1rem;
+      height: 1.1rem;
+      display: block;
+      pointer-events: none;
+    }
+
+    .input-with-button input {
+      padding-right: 3rem;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     .auth-actions {
       display: grid;
       gap: .75rem;
@@ -225,11 +286,25 @@
       <form class="auth-form" id="authForm">
         <div>
           <label for="usernameInput">Username</label>
-          <input id="usernameInput" type="text" autocomplete="username" placeholder="yourname" />
+          <input id="usernameInput" type="text" autocomplete="username" placeholder="yourname" required />
         </div>
         <div>
           <label for="passwordInput">Password</label>
-          <input id="passwordInput" type="password" autocomplete="current-password" placeholder="At least 8 characters" />
+          <div class="input-with-button">
+            <input id="passwordInput" type="password" autocomplete="current-password" placeholder="At least 8 characters" minlength="8" required />
+            <button class="field-toggle" id="togglePasswordButton" type="button" aria-pressed="false" aria-controls="passwordInput" aria-label="Show password" title="Show password">
+              <span class="sr-only">Show password</span>
+            </button>
+          </div>
+        </div>
+        <div id="confirmPasswordField" hidden>
+          <label for="confirmPasswordInput">Retype Password</label>
+          <div class="input-with-button">
+            <input id="confirmPasswordInput" type="password" autocomplete="new-password" placeholder="Retype your password" minlength="8" />
+            <button class="field-toggle" id="toggleConfirmPasswordButton" type="button" aria-pressed="false" aria-controls="confirmPasswordInput" aria-label="Show retyped password" title="Show retyped password">
+              <span class="sr-only">Show retyped password</span>
+            </button>
+          </div>
         </div>
         <div class="auth-actions" id="signedOutActions">
           <button class="btn btn-fill" id="signInButton" type="submit">Sign In</button>
@@ -247,7 +322,7 @@
     </div>
   </main>
 
-  <script type="module" src="/js/index.js"></script>
+  <script type="module" src="/js/index.js?v=20260330-2"></script>
 </body>
 
 </html>

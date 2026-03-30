@@ -5,7 +5,7 @@ import {
   getSession,
   isAuthenticatedSession,
   logout
-} from '/js/api.js';
+} from '/js/api.js?v=20260330-2';
 
 const DEFAULT_FONT_KEY = 'serif';
 
@@ -275,11 +275,24 @@ function buildSiteNotice(site, { success = false } = {}) {
     {
       label: 'Download Photos',
       variant: 'btn-outline',
-      onClick: async () => {
+      onClick: async (event) => {
+        const button = event?.currentTarget instanceof HTMLButtonElement
+          ? event.currentTarget
+          : null;
+        const originalText = button?.textContent || 'Download Photos';
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'Downloading...';
+        }
         try {
           await downloadPhotos(site);
         } catch (error) {
           alert(error.message || 'Could not download the photos.');
+        } finally {
+          if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+          }
         }
       }
     }

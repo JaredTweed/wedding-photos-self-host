@@ -1,4 +1,4 @@
-import { apiFetch, downloadBlob, formatTimestamp } from '/js/api.js';
+import { apiFetch, downloadBlob, formatTimestamp } from '/js/api.js?v=20260330-2';
 
 const FONT_OPTIONS = {
   serif: `Georgia, "Times New Roman", serif`,

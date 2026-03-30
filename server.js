@@ -35,7 +35,6 @@ const PASSWORD_MAX_LENGTH = 200;
 const USERNAME_MAX_LENGTH = 32;
 const SCRYPT_KEYLEN = 64;
 const MEDIA_CACHE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-const ASSET_CACHE_MAX_AGE_SECONDS = 60 * 60;
 const MAX_QR_CACHE_ENTRIES = 128;
 
 const DEFAULT_PRIMARY_COLOR = 'hsl(96 23.7% 54%)';
@@ -1206,7 +1205,7 @@ async function main() {
         return;
       }
       if (path.extname(filePath) === '.js') {
-        response.setHeader('Cache-Control', `public, max-age=${ASSET_CACHE_MAX_AGE_SECONDS}, must-revalidate`);
+        response.setHeader('Cache-Control', 'no-cache');
       }
     }
   }));

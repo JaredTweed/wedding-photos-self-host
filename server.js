@@ -12,6 +12,39 @@ const multer = require('multer');
 const QRCode = require('qrcode');
 
 const ROOT_DIR = __dirname;
+
+function loadEnvFile(filePath) {
+  let raw;
+  try {
+    raw = fsSync.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return;
+    throw error;
+  }
+
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const matched = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!matched) continue;
+
+    const key = matched[1];
+    let value = matched[2];
+    if (
+      (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith('\'') && value.endsWith('\''))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile(path.join(ROOT_DIR, '.env'));
+
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(ROOT_DIR, 'data'));
 const DATABASE_FILE = path.join(DATA_DIR, 'db.json');
@@ -23,6 +56,7 @@ const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const SESSION_SECRET = String(process.env.SESSION_SECRET || process.env.COOKIE_SECRET || 'change-this-session-secret');
 const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
 const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '');
+const ACCOUNT_CREATION_PASSWORD = String(process.env.ACCOUNT_CREATION_PASSWORD || '').trim();
 const RUNNING_IN_CONTAINER = fsSync.existsSync('/.dockerenv');
 
 const SESSION_COOKIE = 'sharedlens_session';
@@ -529,7 +563,8 @@ function createArchiveName(createdAt, originalName) {
 function serializeSession(request) {
   return {
     isAuthenticated: Boolean(request.user),
-    user: request.user ? serializeUser(request.user) : null
+    user: request.user ? serializeUser(request.user) : null,
+    registrationPasswordRequired: Boolean(ACCOUNT_CREATION_PASSWORD)
   };
 }
 
@@ -807,7 +842,12 @@ async function main() {
   app.post('/api/auth/register', asyncHandler(async (request, response) => {
     const username = normalizeUsername(request.body?.username);
     const password = normalizePassword(request.body?.password);
+    const accountCreationPassword = String(request.body?.accountCreationPassword || '');
     const normalizedUsernameKey = usernameKeyFor(username);
+
+    if (ACCOUNT_CREATION_PASSWORD && accountCreationPassword !== ACCOUNT_CREATION_PASSWORD) {
+      throw new HttpError(403, 'The account creation password was incorrect.');
+    }
 
     const user = await store.mutate(async (data) => {
       if (data.users.some((entry) => entry.usernameKey === normalizedUsernameKey)) {

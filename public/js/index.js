@@ -21,6 +21,7 @@ const AUTH_MODE_REGISTER = 'register';
 
 let authMode = AUTH_MODE_LOGIN;
 let passwordsVisible = false;
+let registrationPasswordRequired = false;
 
 const EYE_OPEN_ICON = `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -94,6 +95,7 @@ function clearSensitiveInputs() {
 
 function setSignedInState(session) {
   const signedIn = isAuthenticatedSession(session);
+  registrationPasswordRequired = Boolean(session?.registrationPasswordRequired);
   authForm.style.display = signedIn ? 'none' : 'grid';
   signedOutActions.style.display = signedIn ? 'none' : 'grid';
   accountPanel.classList.toggle('show', signedIn);
@@ -125,14 +127,24 @@ async function handleAuth() {
   if (!authForm.reportValidity()) {
     return;
   }
+
+  const credentials = readCredentials();
+  if (authMode === AUTH_MODE_REGISTER && credentials.password !== credentials.confirmPassword) {
+    setAuthMessage('Passwords do not match.');
+    return;
+  }
+  if (authMode === AUTH_MODE_REGISTER && registrationPasswordRequired) {
+    const accountCreationPassword = window.prompt('Enter the account creation password.');
+    if (accountCreationPassword === null) {
+      return;
+    }
+    credentials.accountCreationPassword = accountCreationPassword;
+  }
+
   setBusyState(true);
 
   try {
-    const credentials = readCredentials();
     if (authMode === AUTH_MODE_REGISTER) {
-      if (credentials.password !== credentials.confirmPassword) {
-        throw new Error('Passwords do not match.');
-      }
       await register(credentials);
     } else {
       await login(credentials);

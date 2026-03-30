@@ -8,6 +8,7 @@ services:
       PORT: 3000
       DATA_DIR: /data
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret}
+      ACCOUNT_CREATION_PASSWORD: ${ACCOUNT_CREATION_PASSWORD:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     volumes:
       - ./data:/data

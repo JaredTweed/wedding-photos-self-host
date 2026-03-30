@@ -8,17 +8,10 @@ This repo now runs as a fully self-hosted app.
 - Site owners create their own username/password accounts, and each site belongs to its owner account
 - Guest uploads use a signed uploader cookie so each browser can only delete its own files
 
-## Run Locally
-
-1. Copy `.env.example` to `.env` and set `SESSION_SECRET`
-2. Install dependencies with `npm install`
-3. Start the app with `npm start`
-4. Open `http://localhost:3000`
-5. Create your first account on the main page, then open the site editor
-
 ## Run With Docker
 
 1. Copy `.env.example` to `.env` and set `SESSION_SECRET`
+2. If you want account creation to require a host-provided password, set `ACCOUNT_CREATION_PASSWORD` in `.env` (e.g., `ACCOUNT_CREATION_PASSWORD=mypassword`).
 2. Start the container with `docker compose up --build`
 3. Open `http://localhost:3000`
 4. Create your first account on the main page, then open the site editor
@@ -35,4 +28,3 @@ Uploaded data is persisted in the local `./data` directory through the compose v
 ## Notes
 
 - If a browser clears its cookies, that browser loses delete access to uploads it previously made. This matches the anonymous-upload model, but the restriction is now enforced server-side instead of by localStorage alone.
-

@@ -16,3 +16,4 @@ This repo now runs as a fully self-hosted app.
 
 - Uploaded originals and thumbnails are stored under `data/media/`.
 - Guest uploads use a signed uploader cookie so each browser can only delete its own files. If a browser clears its cookies, that browser loses delete access to uploads it previously made. This matches the anonymous-upload model, but the restriction is now enforced server-side instead of by localStorage alone.
+- The non-self-hosted version includes the available code ([https://github.com/JaredTweed/wedding-photos](https://github.com/JaredTweed/wedding-photos)) and a hosted site ([https://sharedlens.ca/](https://sharedlens.ca/)) that you can pay to use.
